@@ -16,6 +16,7 @@ data_root_directory = os.path.join('scratch', 'OSA-alpha', 'datasets')
 spacy_nlp = spacy.load('en_core_web_md')
 spacy_tokenizer = spacy_nlp.tokenizer
 
+
 def tokenize(sentence):
     return [i for i in re.split(r"([-.\"',:? !\$#@~()*&\^%;\[\]/\\\+<>\n=])",
                                 sentence) if i!='' and i!=' ' and i!='\n']
