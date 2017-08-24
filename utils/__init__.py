@@ -91,15 +91,15 @@ def vocabulary_builder(data_paths, min_frequency=5, tokenizer='spacy',
           len(cnt), min_frequency)
 
     # Sort tokens by 1. frequency 2. lexically to break ties
-    word_with_counts = cnt.most_common()
-    word_with_counts = sorted(
-            word_with_counts, key=lambda x: (x[1], x[0]), reverse=True)
+    vocab = cnt.most_common()
+    vocab = sorted(
+            vocab, key=lambda x: (x[1], x[0]), reverse=True)
 
     # Take only max-vocab
     if max_vocab_size is not None:
-        word_with_counts = word_with_counts[:max_vocab_size]
+        vocab = vocab[:max_vocab_size]
 
-    return word_with_counts
+    return vocab
 
 from .microsoft_paraphrase_dataset import MicrosoftParaphraseDataset
 from .sts_all import STSAll
