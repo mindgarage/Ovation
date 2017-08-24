@@ -1,5 +1,7 @@
 import os
+import glob
 import collections
+import utils
 from tflearn.data_utils import to_categorical
 
 class Gersen(object):
@@ -19,7 +21,8 @@ class Gersen(object):
         pass
 
     def load_anew(self, train_validate_split, test_split, shuffle):
-        all_data = load_all_data(self.dataset_path)
+        original_dataset = os_path_join(self.dataset_path, 'original')
+        all_data, all_files = load_all_data(self.dataset_path)
 
         # if shuffle:
         #   all_data = ...
@@ -37,13 +40,20 @@ class Gersen(object):
                                     train_validate_data[train_length:]
 
         # Create vocabulary
+        utils.vocabulary_builder(all_files, 2, 'spacy', True,
+                                 line_processor = lambda x : x)
 
         self.train = DataSet(train_data, vocab, shuffle)
         self.validate = DataSet(validate_data, vocab, shuffle)
         self.test = DataSet(test_data, vocab, shuffle)
 
     def load_all_data(self, path):
-        pass
+        all_files = glob.glob(os.path.join(path, '*/*.txt'))
+        all_data = []
+        for i in all_files:
+            with open(i, 'rb', encoding='utf8'):
+                all_data.append(i.readline())
+        return all_data, all_files
 
 class DataSet(object):
     def __init__(self, data, vocab, shuffle=True):
