@@ -22,8 +22,8 @@ def tokenize(sentence):
     return [i for i in re.split(r"([-.\"',:? !\$#@~()*&\^%;\[\]/\\\+<>\n=])",
                                 sentence) if i!='' and i!=' ' and i!='\n']
 
-def padseq(data):
-    if self.pad == 0:
+def padseq(data, pad=0):
+    if pad == 0:
         return data
     else:
         return tflearn.data_utils.pad_sequences(data, maxlen=self.pad,
@@ -59,26 +59,25 @@ def seq2id(data, w2i, seq_begin=False, seq_end=False):
     return buff
 
 
-def vocabulary_builder(data_path, min_frequency=5, tokenizer='spacy',
-                       downcase=True, max_vocab_size=None):
+def vocabulary_builder(data_paths, min_frequency=5, tokenizer='spacy',
+                   downcase=True, max_vocab_size=None, line_processor=None):
     cnt = collections.Counter()
-
-    for line in open(data_path, 'r'):
-        tokens = []
-        if downcase:
-            line = line.lower()
-
-        line = " ".join(line.split('\t')[:2])
-        if tokenizer == 'spacy':
-            doc = spacy_tokenizer(line)
-            for token in doc:
-                tokens.append(token)
-        elif tokenizer == 'nltk':
-            tokens = nltk_tokenizer(line)
-        else:
-            tokens = tokenize(line)
-        tokens = [_ for _ in tokens if len(_) > 0]
-        cnt.update(tokens)
+    for data_path in data_paths:
+        for line in open(data_path, 'r'):
+            tokens = []
+            line = line_processor(line)
+            if downcase:
+                line = line.lower()
+            if tokenizer == 'spacy':
+                doc = spacy_tokenizer(line)
+                for token in doc:
+                    tokens.append(token)
+            elif tokenizer == 'nltk':
+                tokens = nltk_tokenizer(line)
+            else:
+                tokens = tokenize(line)
+            tokens = [_ for _ in tokens if len(_) > 0]
+            cnt.update(tokens)
 
     print("Found %d unique tokens in the vocabulary.", len(cnt))
 
