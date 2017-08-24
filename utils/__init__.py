@@ -2,6 +2,7 @@
 # precreated the datasets and organized them already in a directory structure.
 #
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import re
 import spacy
 import tflearn
@@ -101,7 +102,7 @@ def vocabulary_builder(data_paths, min_frequency=5, tokenizer='spacy',
 
     return word_with_counts
 
-from .microsoft_paraphrase_dataset import MicrosoftParaphraseDataset
+#from .microsoft_paraphrase_dataset import MicrosoftParaphraseDataset
 from .sts_all import STSAll
 #from gersen import Gersen
 
