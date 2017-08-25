@@ -68,7 +68,7 @@ def tokenize(line, tokenizer='spacy'):
     if tokenizer == 'spacy':
         doc = spacy_tokenizer(line)
         for token in doc:
-            tokens.append(token)
+            tokens.append(token.text)
     elif tokenizer == 'nltk':
         tokens = nltk_tokenizer(line)
     else:
