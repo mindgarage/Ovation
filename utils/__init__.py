@@ -107,13 +107,13 @@ def vocabulary_builder(data_paths, min_frequency=5, tokenizer='spacy',
 
     return vocab
 
-def new_vocabulary(files, dataset_path, min_frequency=5, tokenizer='spacy',
-              downcase=True, max_vocab_size=None, name='new', load_w2v=True):
+def new_vocabulary(files, dataset_path, min_frequency, tokenizer,
+                      downcase, max_vocab_size, name):
 
     vocab_path = os.path.join(dataset_path,
-                              '{}vocab.txt'.format(name))
+                              '{}_vocab.txt'.format(name))
     w2v_path = os.path.join(dataset_path,
-                            '{}w2v.npy'.format(name))
+                            '{}_w2v.npy'.format(name))
 
     if os.path.exists(vocab_path):
         return vocab_path, w2v_path
