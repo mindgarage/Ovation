@@ -41,6 +41,7 @@ class STSAll(object):
                           downcase=True, max_vocab_size=None,
                           name='new', load_w2v=True):
         self.vocab_path, self.w2v_path = utils.new_vocabulary(
+                [self.train_path], self.dataset_path,
                 min_frequency, tokenizer=tokenizer, downcase=downcase,
                 max_vocab_size=max_vocab_size, name=name)
         self.__refresh(load_w2v)

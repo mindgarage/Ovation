@@ -87,7 +87,8 @@ class Gersen(object):
                           downcase=True, max_vocab_size=None,
                           name='new', load_w2v=True):
         self.vocab_path, self.w2v_path = utils.new_vocabulary(
-                files=all_files, min_frequency=min_frequency,
+                files=all_files, dataset_path=self.dataset_path,
+                min_frequency=min_frequency,
                 tokenizer=tokenizer, downcase=downcase,
                 max_vocab_size=max_vocab_size, name=name)
         self.__refresh(load_w2v)
