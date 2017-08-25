@@ -38,10 +38,11 @@ class STSAll(object):
         self.__refresh(load_w2v=False)
 
     def create_vocabulary(self, min_frequency=5, tokenizer='spacy',
-            downcase=True, max_vocab_size=None, name='new', load_w2v=True):
-        self.vocab_path, self.w2v_path = utils.new_vocabulary(min_frequency=5,
-                tokenizer='spacy', downcase=True, max_vocab_size=None,
-                name='new', load_w2v=True)
+                          downcase=True, max_vocab_size=None,
+                          name='new', load_w2v=True):
+        self.vocab_path, self.w2v_path = utils.new_vocabulary(
+                min_frequency, tokenizer=tokenizer, downcase=downcase,
+                max_vocab_size=max_vocab_size, name=name)
         self.__refresh(load_w2v)
 
     def __refresh(self, load_w2v):
