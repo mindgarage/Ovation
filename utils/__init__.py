@@ -46,18 +46,20 @@ def id2seq(data, i2w):
         buff.append(sent)
     return buff
 
-
 def seq2id(data, w2i, seq_begin=False, seq_end=False):
     buff = []
     for seq in data:
         id_seq = []
-        if seq_begin: id_seq.append(w2i['SEQ_BEGIN'])
+
+        if seq_begin:
+            id_seq.append(w2i['SEQ_BEGIN'])
+
         for term in seq:
-            if term in w2i:
-                id_seq.append(w2i[term])
-            else:
-                id_seq = [w2i['UNK']]
-        if seq_end: id_seq.append(w2i['SEQ_BEGIN'])
+            id_seq.append(w2i[term] if term in w2i else w2i['UNK'])
+
+        if seq_end:
+            id_seq.append(w2i['SEQ_END'])
+
         buff.append(id_seq)
     return buff
 
