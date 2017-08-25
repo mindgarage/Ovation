@@ -162,7 +162,8 @@ def preload_w2v(w2i, initialize='random'):
         w2v = np.zeros((len(w2i), 300))
 
     for term in w2i:
-        w2v[w2i[term]] = spacy_nlp(term).vector
+        if spacy_nlp(term).has_vector:
+            w2v[w2i[term]] = spacy_nlp(term).vector
 
     return w2v
 
