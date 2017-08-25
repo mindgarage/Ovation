@@ -82,7 +82,7 @@ class STSAll(object):
             vf.write('UNK\t1\n')
             for word, count in word_with_counts:
                 vf.write("{}\t{}\n".format(word, count))
-        self.__refresh()
+        self.__refresh(load_w2v)
 
     def preload_w2v(self, initialize='random'):
         '''
@@ -124,7 +124,7 @@ class DataSet(object):
     def close(self):
         self.datafile.close()
 
-    def next_batch(self, batch_size, balance=True, seq_begin=False,
+    def next_batch(self, batch_size=64, balance=True, seq_begin=False,
                    seq_end=False):
         if not self.datafile:
             raise Exception('The dataset needs to be open before being used. '
