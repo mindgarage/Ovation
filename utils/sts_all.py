@@ -28,86 +28,38 @@ class STSAll(object):
         self.vocab_path = os.path.join(self.dataset_path, 'vocab.txt')
         self.w2v_path = os.path.join(self.dataset_path, 'w2v.npy')
 
-        self.w2i, self.i2w = self.load_vocabulary()
+        self.w2i, self.i2w = utils.load_vocabulary(self.vocab_path)
         self.w2v = self.load_w2v()
 
         self.vocab_size = len(self.w2i)
         self.train = DataSet(self.train_path, (self.w2i, self.i2w))
         self.validation = DataSet(self.validation_path, (self.w2i, self.i2w))
         self.test = DataSet(self.test_path, (self.w2i, self.i2w))
+        self.__refresh(load_w2v=False)
+
+    def create_vocabulary(self, min_frequency=5, tokenizer='spacy',
+            downcase=True, max_vocab_size=None, name='new', load_w2v=True):
+        self.vocab_path, self.w2v_path = utils.new_vocabulary(min_frequency=5,
+                tokenizer='spacy', downcase=True, max_vocab_size=None,
+                name='new', load_w2v=True)
+        self.__refresh(load_w2v)
 
     def __refresh(self, load_w2v):
-        self.w2i, self.i2w = self.load_vocabulary()
+        self.w2i, self.i2w = utils.load_vocabulary(self.vocab_path)
         if load_w2v:
-            self.w2v = self.preload_w2v()
+            self.w2v = utils.preload_w2v(self.w2i)
         self.train.set_vocab((self.w2i, self.i2w))
         self.validation.set_vocab((self.w2i, self.i2w))
         self.test.set_vocab((self.w2i, self.i2w))
 
-    def load_vocabulary(self):
-        w2i = {}
-        i2w = {}
-        with open(self.vocab_path, 'r') as vf:
-            wid = 0
-            for line in vf:
-                term = line.strip().split('\t')[0]
-                w2i[term] = wid
-                i2w[wid] = term
-                wid += 1
-        return w2i, i2w
-
-    def create_vocabulary(self, min_frequency=5, tokenizer='spacy',
-            downcase=True, max_vocab_size=None, name='new', load_w2v=True):
-
-        vocab_path = os.path.join(self.dataset_path,
-                                  '{}vocab.txt'.format(name))
-        w2v_path = os.path.join(self.dataset_path,
-                                '{}w2v.npy'.format(name))
-        if os.path.exists(vocab_path):
-            self.vocab_path = vocab_path
-            self.w2v_path = w2v_path
-            self.__refresh(load_w2v)
-
-        word_with_counts = utils.vocabulary_builder([self.train_path],
-                    min_frequency=min_frequency, tokenizer=tokenizer,
-                    downcase=downcase, max_vocab_size=max_vocab_size,
-                    line_processor=lambda line: " ".join(line.split('\t')[:2]))
-
-        self.vocab_path = vocab_path
-
-        with open(self.vocab_path, 'w') as vf:
-            vf.write('PAD\t1\n')
-            vf.write('SEQ_BEGIN\t1\n')
-            vf.write('SEQ_END\t1\n')
-            vf.write('UNK\t1\n')
-            for word, count in word_with_counts:
-                vf.write("{}\t{}\n".format(word, count))
-        self.__refresh()
-
-    def preload_w2v(self, initialize='random'):
-        '''
-        initialize can be "random" or "zeros"
-        '''
-        if initialize == 'random':
-            w2v = np.random.rand(len(self.w2i), 300)
-        else:
-            w2v = np.zeros((len(self.w2i), 300))
-        for term in self.w2i:
-            w2v[self.w2i[term]] = utils.spacy_nlp(term).vector
-
-        return w2v
-
     def load_w2v(self):
         return np.load(self.w2v_path)
-
 
     def save_w2v(self, w2v):
         return np.save(self.w2v_path, w2v)
 
 
-
 class DataSet(object):
-
     def __init__(self, path, vocab):
 
         self.path = path
@@ -124,7 +76,7 @@ class DataSet(object):
     def close(self):
         self.datafile.close()
 
-    def next_batch(self, batch_size, balance=True, seq_begin=False,
+    def next_batch(self, batch_size=64, balance=True, seq_begin=False,
                    seq_end=False):
         if not self.datafile:
             raise Exception('The dataset needs to be open before being used. '
@@ -160,6 +112,4 @@ class DataSet(object):
     @property
     def epochs_completed(self):
         return self._epochs_completed
-
-
 

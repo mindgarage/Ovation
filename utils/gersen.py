@@ -28,8 +28,8 @@ class Gersen(object):
         self.load_anew(train_validate_split=utils.train_validate_split,
                        test_split=utils.test_split_small)
 
-    def load_anew(self, train_validate_split, test_split, shuffle):
-        original_dataset = os.path.join(self.dataset_path, 'original')
+    def load_anew(self, train_validate_split, test_split, shuffle=True):
+        #original_dataset = os.path.join(self.dataset_path, 'original')
         all_data, all_files = self.load_all_data(self.dataset_path)
 
         if shuffle:
@@ -68,10 +68,11 @@ class Gersen(object):
         all_files = [all_positive, all_negative, all_neutral]
 
         all_data = []
-        for i in all_files:
-            for j in i:
-                with open(j, 'rb', encoding='utf8'):
-                    all_data.append((j.readline(), i))
+        for i in range(len(all_files)):
+            for j in all_files[i]:
+                print("Opening file: {}".format(j))
+                with open(j, 'r', encoding='utf8') as f:
+                    all_data.append((f.readline(), i))
 
         # This list comprehension "flattens" all_files
         return all_data, [i for j in all_files for i in j]
@@ -147,7 +148,7 @@ class DataSet(object):
         self.set_vocab(vocab)
         self.data = data
 
-    def next_batch(self, batch_size, seq_begin=False, seq_end=False,
+    def next_batch(self, batch_size=64, seq_begin=False, seq_end=False,
                    format='one_hot', rescale=None, pad=None, get_raw=False,
                    return_sequence_lengths=False, tokenizer='spacy'):
         # format: either 'one_hot' or 'numerical'
@@ -203,6 +204,6 @@ class DataSet(object):
         self.vocab_i2w = vocab[1]
 
 if __name__ == '__main__':
-    g = Gersen()
+    g = Gersen(use_defaults=True)
     a = g.train.next_batch()
 
