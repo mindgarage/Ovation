@@ -17,9 +17,16 @@ train_validate_split = 0.9
 test_split_large = 0.3
 test_split_small = 0.2
 data_root_directory = os.path.join('/', 'scratch', 'OSA-alpha', 'data', 'datasets')
-spacy_nlp = spacy.load('en_core_web_md')
-spacy_tokenizer = spacy_nlp.tokenizer
 
+spacy_nlp = None
+
+def get_spacy():
+    global spacy_nlp
+    if spacy_nlp is None:
+        spacy_nlp = spacy.load('en_core_web_md')
+    return spacy_nlp
+
+spacy_tokenizer = get_spacy().tokenizer
 
 def default_tokenize(sentence):
     return [i for i in re.split(r"([-.\"',:? !\$#@~()*&\^%;\[\]/\\\+<>\n=])",
@@ -68,7 +75,7 @@ def tokenize(line, tokenizer='spacy'):
     if tokenizer == 'spacy':
         doc = spacy_tokenizer(line)
         for token in doc:
-            tokens.append(token)
+            tokens.append(token.text)
     elif tokenizer == 'nltk':
         tokens = nltk_tokenizer(line)
     else:
