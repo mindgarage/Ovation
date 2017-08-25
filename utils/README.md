@@ -59,8 +59,15 @@ The `Dataset` classes always implement the same API:
  * It contains a function `next_batch()`:
 
 ```python
-def next_batch(self, format, rescale, pad):
-
+def next_batch(self, batch_size, seq_begin, seq_end, format, rescale,
+                pad, return_sequence_lengths):
+# batch_size is an integer
+#
+# seq_begin is a boolean indicating if the character of SEQ_BEGIN should be
+# inserted to each sequence or not
+#
+# seq_end is the same as seq_begin, but for the SEQ_END character
+#
 # format is either 'one_hot' or 'numerical'
 #
 # rescale is either None, or a tuple (min, max) with the interval to
@@ -154,7 +161,7 @@ the following two code structures:
           |   +- test.txt (or multiple files, if it is the case)
           +- vocab.txt
           +- w2v.tny
-           
+
 ```
 
 ```
