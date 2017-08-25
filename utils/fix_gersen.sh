@@ -1,5 +1,7 @@
 cd ../data/datasets/gersen
 
+set -x
+
 # For some reason, dumping the output of iconv directly into the file
 # that it is reading won't work: it generates an empty file from that.
 
