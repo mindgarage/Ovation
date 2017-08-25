@@ -19,7 +19,7 @@ spacy_nlp = spacy.load('en_core_web_md')
 spacy_tokenizer = spacy_nlp.tokenizer
 
 
-def tokenize(sentence):
+def default_tokenize(sentence):
     return [i for i in re.split(r"([-.\"',:? !\$#@~()*&\^%;\[\]/\\\+<>\n=])",
                                 sentence) if i!='' and i!=' ' and i!='\n']
 
@@ -59,24 +59,27 @@ def seq2id(data, w2i, seq_begin=False, seq_end=False):
         buff.append(id_seq)
     return buff
 
+def tokenize(line, tokenizer='spacy'):
+    tokens = []
+    if tokenizer == 'spacy':
+        doc = spacy_tokenizer(line)
+        for token in doc:
+            tokens.append(token)
+    elif tokenizer == 'nltk':
+        tokens = nltk_tokenizer(line)
+    else:
+        tokens = default_tokenize(line)
+    return tokens
 
 def vocabulary_builder(data_paths, min_frequency=5, tokenizer='spacy',
                    downcase=True, max_vocab_size=None, line_processor=None):
     cnt = collections.Counter()
     for data_path in data_paths:
         for line in open(data_path, 'r'):
-            tokens = []
             line = line_processor(line)
             if downcase:
                 line = line.lower()
-            if tokenizer == 'spacy':
-                doc = spacy_tokenizer(line)
-                for token in doc:
-                    tokens.append(token)
-            elif tokenizer == 'nltk':
-                tokens = nltk_tokenizer(line)
-            else:
-                tokens = tokenize(line)
+            tokens = tokenize(line, tokenizer)
             tokens = [_ for _ in tokens if len(_) > 0]
             cnt.update(tokens)
 

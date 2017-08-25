@@ -17,7 +17,7 @@ class Gersen(object):
         self.dataset_path = os.path.join(utils.data_root_directory, 'gersen')
 
         if use_defaults:
-            self.initialize_defaults(self)
+            self.initialize_defaults()
         else:
             assert train_validate_split is not None
             assert test_split is not None
@@ -148,21 +148,21 @@ class DataSet(object):
         self.data = data
 
     def next_batch(self, batch_size, seq_begin=False, seq_end=False,
-                   format='one_hot', rescale=None, pad=None,
-                   return_sequence_lengths=False):
+                   format='one_hot', rescale=None, pad=None, get_raw=False,
+                   return_sequence_lengths=False, tokenizer='spacy'):
         # format: either 'one_hot' or 'numerical'
         # rescale: if format is 'numerical', then this should be a tuple
         #           (min, max)
-        samples = data[self._index_in_epoch:self._index_in_epoch+batch_size]
+        samples = self.data[self._index_in_epoch:self._index_in_epoch+batch_size]
 
         if (len(samples) < batch_size):
             self._epochs_completed += 1
             self._index_in_epoch = 0
 
-            random.shuffle(all_data)
+            random.shuffle(self.data)
 
             missing_samples = batch_size - len(samples)
-            samples.extend(data[0:missing_samples])
+            samples.extend(self.data[0:missing_samples])
 
         x, y = zip(*samples)
 
@@ -172,15 +172,27 @@ class DataSet(object):
         if (rescale is not None):
             pass
 
-        if (pad is not None):
-            pass
+        if (get_raw):
+            return self.Batch(x=x, y=y)
 
-        batch = self.Batch(x=x, y=y)
+        # Generate sequences
+        x = self.generate_sequences(x, tokenizer)
+
+        batch = self.Batch(
+            x=utils.padseq(utils.seq2id(x, self.vocab_w2i)),
+            y=y)
+
         if (return_sequence_lengths):
             lens = [len(i) for i in x]
             return batch, lens
-
         return batch
+
+    def generate_sequences(self, x, tokenizer):
+        new_x = []
+        for instance in x:
+            tokens = utils.tokenize(instance, tokenizer)
+            new_x.append(tokens)
+        return new_x
 
     @property
     def epochs_completed(self):
