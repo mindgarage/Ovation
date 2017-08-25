@@ -16,12 +16,13 @@ class Gersen(object):
                     'annotated sentences.'
         self.dataset_path = os.path.join(utils.data_root_directory, 'gersen')
 
-        if use_defaults:
-            self.initialize_defaults()
+        if use_defaults or train_validate_split=None or test_split=None:
+            self.initialize_defaults(shuffle)
         else:
             assert train_validate_split is not None
             assert test_split is not None
-            self.load_anew(self, train_validate_split, test_split)
+            self.load_anew(train_validate_split, test_split,
+                           shuffle=shuffle)
 
     def initialize_defaults(self):
         # For now, we are happy that this works =)
@@ -30,7 +31,7 @@ class Gersen(object):
 
     def load_anew(self, train_validate_split, test_split, shuffle=True):
         #original_dataset = os.path.join(self.dataset_path, 'original')
-        all_data, all_files = self.load_all_data(self.dataset_path)
+        all_data, self.all_files = self.load_all_data(self.dataset_path)
 
         if shuffle:
             random.shuffle(all_data)
@@ -112,7 +113,7 @@ class DataSet(object):
         self.data = data
 
     def next_batch(self, batch_size=64, seq_begin=False, seq_end=False,
-                   format='one_hot', rescale=None, pad=None, get_raw=False,
+                   format='one_hot', rescale=None, pad=0, get_raw=False,
                    return_sequence_lengths=False, tokenizer='spacy'):
         # format: either 'one_hot' or 'numerical'
         # rescale: if format is 'numerical', then this should be a tuple
@@ -143,7 +144,7 @@ class DataSet(object):
         x = self.generate_sequences(x, tokenizer)
 
         batch = self.Batch(
-            x=utils.padseq(utils.seq2id(x, self.vocab_w2i)),
+            x=utils.padseq(utils.seq2id(x, self.vocab_w2i), pad),
             y=y)
 
         if (return_sequence_lengths):
@@ -169,5 +170,11 @@ class DataSet(object):
 if __name__ == '__main__':
     g = Gersen(use_defaults=True)
     a = g.train.next_batch()
-    print(a)
+    print(len(a.x))
+    print(len(a.y))
+
+    print(g.train.data)
+    print(len(g.train.data))
+    print(len(g.validate.data))
+    print(len(g.test.data))
 
