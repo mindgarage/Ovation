@@ -74,12 +74,35 @@ class DataSet(object):
     def close(self):
         self.datafile.close()
 
+    def validate_rescale(self, rescale):
+        if rescale[0] > rescale[1]:
+            raise ValueError('Incompatible rescale values. rescale[0] should '
+                             'be less than rescale[1]. An example of a valid '
+                             'rescale is (4, 8).')
+
+    def rescale(self, values, new_range):
+        new_values = []
+        if new_range[0] == 0.0 and new_range[1] == 1.0:
+            return values
+        for value in values:
+            old_range = (0.0, 1.0)
+            OldRange = (old_range[-1] - old_range[0])
+            if (OldRange == 0):
+                NewValue = new_range[0]
+            else:
+                NewRange = (new_range[-1] - new_range[0])
+                NewValue = (((value - old_range[0]) * NewRange) / OldRange) + \
+                           new_range[0]
+            new_values.append(NewValue)
+        return new_values
+
     def next_batch(self, batch_size=64, seq_begin=False,
-                   seq_end=False):
+                   seq_end=False, rescale=(0.0, 1.0), pad=0, raw=False):
         if not self.datafile:
             raise Exception('The dataset needs to be open before being used. '
                             'Please call dataset.open() before calling '
                             'dataset.next_batch()')
+        self.validate_rescale(rescale)
 
         s1s, s2s, sims = [], [], []
 
@@ -95,13 +118,21 @@ class DataSet(object):
             s1s.append(s1)
             s2s.append(s2)
             sims.append(sim)
-        print(s1s)
+        if not raw:
+            s1s = utils.seq2id(s1s[:batch_size], self.vocab_w2i, seq_begin,
+                               seq_end)
+            s2s = utils.seq2id(s2s[:batch_size], self.vocab_w2i, seq_begin,
+                               seq_end)
+        else:
+            s1s = utils.append_seq_markers(s1s[:batch_size], seq_begin, seq_end)
+            s2s = utils.append_seq_markers(s2s[:batch_size], seq_begin, seq_end)
+        if pad != 0:
+            s1s = utils.padseq(s1s, pad, raw)
+            s2s = utils.padseq(s2s, pad, raw)
         batch = self.Batch(
-            s1=utils.padseq(utils.seq2id(s1s[:batch_size],
-                                         self.vocab_w2i, seq_begin, seq_end)),
-            s2=utils.padseq(utils.seq2id(s2s[:batch_size],
-                                         self.vocab_i2w, seq_begin, seq_end)),
-            sim=sims[:batch_size])
+            s1=s1s,
+            s2=s2s,
+            sim=self.rescale(sims[:batch_size], rescale))
         return batch
 
     def set_vocab(self, vocab):
@@ -111,7 +142,6 @@ class DataSet(object):
     @property
     def epochs_completed(self):
         return self._epochs_completed
-
 
 if __name__ == '__main__':
     sts = STSAll()
@@ -134,22 +164,26 @@ if __name__ == '__main__':
     sts.validation.open()
     sts.test.open()
 
-    for i in range(10):
-        train_batch = sts.train.next_batch()
+    for i in range(2):
+        train_batch = sts.train.next_batch(100, seq_begin=False, seq_end=False,
+                                           rescale=(3, 7), pad=0, raw=True)
         val_batch = sts.validation.next_batch()
         test_batch = sts.test.next_batch()
 
         print(train_batch.s1)
         print(train_batch.s2)
-        print(train_batch.sim)
+        #print(len(train_batch.sim))
+        #print(train_batch.sim)
 
-        print(val_batch.s1)
-        print(val_batch.s2)
-        print(val_batch.sim)
+        #print(val_batch.s1)
+        #print(val_batch.s2)
+        #print(val_batch.sim)
+        #print(len(val_batch.sim))
+        #print(val_batch.sim)
 
-        print(test_batch.s1)
-        print(test_batch.s2)
-        print(test_batch.sim)
+        #print(test_batch.s1)
+        #print(test_batch.s2)
+        #print(test_batch.sim)
 
     sts.train.close()
     sts.validation.close()

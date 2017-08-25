@@ -25,9 +25,20 @@ def default_tokenize(sentence):
     return [i for i in re.split(r"([-.\"',:? !\$#@~()*&\^%;\[\]/\\\+<>\n=])",
                                 sentence) if i!='' and i!=' ' and i!='\n']
 
-def padseq(data, pad=0):
+def padseq(data, pad=0, raw=False):
     if pad == 0:
         return data
+    elif raw:
+        padded_data = []
+        for d in data:
+            diff = pad - len(d)
+            if diff > 0:
+                pads = ['PAD'] * diff
+                d = d + pads
+                padded_data.append(d[:pad])
+            else:
+                padded_data.append(d[:pad])
+        return padded_data
     else:
         return tflearn.data_utils.pad_sequences(data, maxlen=pad,
                 dtype='int32', padding='post', truncating='post', value=0)
@@ -46,20 +57,32 @@ def id2seq(data, i2w):
         buff.append(sent)
     return buff
 
-
 def seq2id(data, w2i, seq_begin=False, seq_end=False):
     buff = []
     for seq in data:
         id_seq = []
-        if seq_begin: id_seq.append(w2i['SEQ_BEGIN'])
+
+        if seq_begin:
+            id_seq.append(w2i['SEQ_BEGIN'])
+
         for term in seq:
-            if term in w2i:
-                id_seq.append(w2i[term])
-            else:
-                id_seq = [w2i['UNK']]
-        if seq_end: id_seq.append(w2i['SEQ_BEGIN'])
+            id_seq.append(w2i[term] if term in w2i else w2i['UNK'])
+
+        if seq_end:
+            id_seq.append(w2i['SEQ_END'])
+
         buff.append(id_seq)
     return buff
+
+def append_seq_markers(data, seq_begin=True, seq_end=True):
+    data_ = []
+    for d in data:
+        if seq_begin:
+            d = ['SEQ_BEGIN'] + d
+        if seq_end:
+            d = d + ['SEQ_END']
+        data_.append(d)
+    return data_
 
 def tokenize(line, tokenizer='spacy'):
     tokens = []
@@ -124,16 +147,11 @@ def new_vocabulary(files, dataset_path, min_frequency, tokenizer,
         print("Files exist already")
         return vocab_path, w2v_path
 
-    print("Will count words")
     word_with_counts = vocabulary_builder(files,
                 min_frequency=min_frequency, tokenizer=tokenizer,
                 downcase=downcase, max_vocab_size=max_vocab_size,
                 line_processor=lambda line: " ".join(line.split('\t')[:2]))
 
-    print("Finished counting words:")
-    print(word_with_counts)
-
-    print("Will open file {}".format(vocab_path))
     with open(vocab_path, 'w') as vf:
         vf.write('PAD\t1\n')
         vf.write('SEQ_BEGIN\t1\n')

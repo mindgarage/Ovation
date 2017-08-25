@@ -56,7 +56,7 @@ class Gersen(object):
 
         self.w2i, self.i2w = utils.load_vocabulary(self.vocab_path)
         self.w2v = utils.preload_w2v(self.w2i)
-        utils.save_w2v(self.w2v)
+        utils.save_w2v(self.w2v_path, self.w2v)
 
         self.train = DataSet(train_data, (self.w2i, self.i2w), shuffle)
         self.validate = DataSet(validate_data, (self.w2i, self.i2w), shuffle)
@@ -169,4 +169,5 @@ class DataSet(object):
 if __name__ == '__main__':
     g = Gersen(use_defaults=True)
     a = g.train.next_batch()
+    print(a)
 
