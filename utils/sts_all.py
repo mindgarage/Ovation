@@ -62,10 +62,10 @@ class DataSet(object):
 
         self.path = path
         self._epochs_completed = 0
-        self._index_in_epoch = 0
         self.vocab_w2i = vocab[0]
         self.vocab_i2w = vocab[1]
         self.datafile = None
+
         self.Batch = collections.namedtuple('Batch', ['s1', 's2', 'sim'])
 
     def open(self):
@@ -95,9 +95,23 @@ class DataSet(object):
                            new_range[0]
             new_values.append(NewValue)
         return new_values
-
-    def next_batch(self, batch_size=64, seq_begin=False,
-                   seq_end=False, rescale=(0.0, 1.0), pad=0, raw=False):
+    
+    def remove_entities(self, data):
+        entities = ['PERSON' , 'NORP' , 'FACILITY' , 'ORG' , 'GPE' , 'LOC' +
+                    'PRODUCT' , 'EVENT' , 'WORK_OF_ART' , 'LANGUAGE' ,
+                    'DATE' , 'TIME' , 'PERCENT' , 'MONEY' , 'QUANTITY' ,
+                    'ORDINAL' , 'CARDINAL' , 'BOE', 'EOE']
+        data_ = []
+        for d in data:
+            d_ = []
+            for token in d:
+                if token not in entities:
+                    d_.append(token)
+            data_.append(d_)
+        return data_
+    
+    def next_batch(self, batch_size=64, seq_begin=False, seq_end=False,
+                   rescale=(0.0, 1.0), pad=0, raw=False, keep_entities=False):
         if not self.datafile:
             raise Exception('The dataset needs to be open before being used. '
                             'Please call dataset.open() before calling '
@@ -118,6 +132,11 @@ class DataSet(object):
             s1s.append(s1)
             s2s.append(s2)
             sims.append(sim)
+
+        if not keep_entities:
+            s1s = self.remove_entities(s1s)
+            s2s = self.remove_entities(s2s)
+
         if not raw:
             s1s = utils.seq2id(s1s[:batch_size], self.vocab_w2i, seq_begin,
                                seq_end)
@@ -145,33 +164,29 @@ class DataSet(object):
 
 if __name__ == '__main__':
     sts = STSAll()
-    print(sts.dataset_name)
-    print(sts.dataset_description)
-
-    print(sts.vocab_size)
-    print(sts.w2v.shape)
-
     sts.create_vocabulary(min_frequency=20, tokenizer='nltk', downcase=True,
                           max_vocab_size=5000, name='mera vocab')
-
-    print(sts.vocab_size)
-    print(sts.w2v.shape)
-
-    print(sts.vocab_path)
-    print(sts.w2v_path)
-
     sts.train.open()
     sts.validation.open()
     sts.test.open()
 
-    for i in range(2):
-        train_batch = sts.train.next_batch(100, seq_begin=False, seq_end=False,
-                                           rescale=(3, 7), pad=0, raw=True)
-        val_batch = sts.validation.next_batch()
-        test_batch = sts.test.next_batch()
+    #for i in range(2):
+    count = 0
+    while True:
+        if sts.validation.epochs_completed == 2:
+            print('done', count)
+            break
+        count += 1
+        #train_batch = sts.train.next_batch(200, seq_begin=True, seq_end=True,
+        #                   rescale=(0, 5), pad=100, raw=True,
+        #                                   keep_entities=False)
+        val_batch = sts.validation.next_batch(200, seq_begin=True, seq_end=True,
+                           rescale=(0, 5), pad=100, raw=True,
+                                           keep_entities=False)
+        #test_batch = sts.test.next_batch()
 
-        print(train_batch.s1)
-        print(train_batch.s2)
+        #print(train_batch.s1)
+        #print(train_batch.s2)
         #print(len(train_batch.sim))
         #print(train_batch.sim)
 
