@@ -14,7 +14,7 @@ stratified = True
 train_validate_split = 0.9
 test_split_large = 0.3
 test_split_small = 0.2
-data_root_directory = os.path.join('scratch', 'OSA-alpha', 'data', 'datasets')
+data_root_directory = os.path.join('/', 'scratch', 'OSA-alpha', 'data', 'datasets')
 spacy_nlp = spacy.load('en_core_web_md')
 spacy_tokenizer = spacy_nlp.tokenizer
 
