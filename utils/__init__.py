@@ -66,7 +66,7 @@ def tokenize(line, tokenizer='spacy'):
     if tokenizer == 'spacy':
         doc = spacy_tokenizer(line)
         for token in doc:
-            tokens.append(token)
+            tokens.append(token.text)
     elif tokenizer == 'nltk':
         tokens = nltk_tokenizer(line)
     else:
@@ -111,11 +111,16 @@ def new_vocabulary(files, dataset_path, min_frequency, tokenizer,
                       downcase, max_vocab_size, name):
 
     vocab_path = os.path.join(dataset_path,
-                              '{}_vocab.txt'.format(name))
+                              '{}_{}_{}_{}_{}_vocab.txt'.format(
+                                name.replace(' ', '_'), min_frequency,
+                                tokenizer, downcase, max_vocab_size))
     w2v_path = os.path.join(dataset_path,
-                            '{}_w2v.npy'.format(name))
+                            '{}_{}_{}_{}_{}_w2v.npy'.format(
+                                    name.replace(' ', '_'),
+                                    min_frequency, tokenizer, downcase,
+                                    max_vocab_size))
 
-    if os.path.exists(vocab_path):
+    if os.path.exists(vocab_path) and os.path.exists(w2v_path):
         print("Files exist already")
         return vocab_path, w2v_path
 
@@ -146,9 +151,11 @@ def load_vocabulary(vocab_path):
         wid = 0
         for line in vf:
             term = line.strip().split('\t')[0]
-            w2i[term] = wid
-            i2w[wid] = term
-            wid += 1
+            if term not in w2i:
+                w2i[term] = wid
+                i2w[wid] = term
+                wid += 1
+
     return w2i, i2w
 
 
@@ -157,12 +164,13 @@ def preload_w2v(w2i, initialize='random'):
     initialize can be "random" or "zeros"
     '''
     if initialize == 'random':
-        w2v = np.random.rand(len(w2i), 300)
+        w2v = np.random.rand(len(w2i) , 300)
     else:
         w2v = np.zeros((len(w2i), 300))
 
     for term in w2i:
-        w2v[w2i[term]] = spacy_nlp(term).vector
+        if spacy_nlp(term).has_vector:
+            w2v[w2i[term]] = spacy_nlp(term).vector
 
     return w2v
 

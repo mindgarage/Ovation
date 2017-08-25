@@ -20,7 +20,7 @@ class STSAll(object):
                'datasets. \n It has 258537 Training sentence pairs, 133102 ' \
                'Test sentence pairs and 59058 validation sentence pairs.'
         self.test_split = 'large'
-        self.dataset_path = os.path.join(utils.data_root_directory, 'mpd')
+        self.dataset_path = os.path.join(utils.data_root_directory, 'sts_all')
         self.train_path = os.path.join(self.dataset_path, 'train', 'train.txt')
         self.validation_path = os.path.join(self.dataset_path, 'validation',
                                             'validation.txt')
@@ -38,7 +38,7 @@ class STSAll(object):
         self.__refresh(load_w2v=False)
 
     def create_vocabulary(self, min_frequency=5, tokenizer='spacy',
-                          downcase=True, max_vocab_size=None,
+                          downcase=False, max_vocab_size=None,
                           name='new', load_w2v=True):
         self.vocab_path, self.w2v_path = utils.new_vocabulary(
                 [self.train_path], self.dataset_path,
@@ -48,9 +48,10 @@ class STSAll(object):
 
     def __refresh(self, load_w2v):
         self.w2i, self.i2w = utils.load_vocabulary(self.vocab_path)
+        self.vocab_size = len(self.w2i)
         if load_w2v:
             self.w2v = utils.preload_w2v(self.w2i)
-            utils.save_w2v(self.w2v)
+            utils.save_w2v(self.w2v_path, self.w2v)
         self.train.set_vocab((self.w2i, self.i2w))
         self.validation.set_vocab((self.w2i, self.i2w))
         self.test.set_vocab((self.w2i, self.i2w))
@@ -73,7 +74,7 @@ class DataSet(object):
     def close(self):
         self.datafile.close()
 
-    def next_batch(self, batch_size=64, balance=True, seq_begin=False,
+    def next_batch(self, batch_size=64, seq_begin=False,
                    seq_end=False):
         if not self.datafile:
             raise Exception('The dataset needs to be open before being used. '
@@ -82,7 +83,7 @@ class DataSet(object):
 
         s1s, s2s, sims = [], [], []
 
-        while len(s1s) == batch_size:
+        while len(s1s) < batch_size:
             row = self.datafile.readline()
             if row == '':
                 self._epochs_completed += 1
@@ -94,11 +95,12 @@ class DataSet(object):
             s1s.append(s1)
             s2s.append(s2)
             sims.append(sim)
+        print(s1s)
         batch = self.Batch(
             s1=utils.padseq(utils.seq2id(s1s[:batch_size],
-                                         self.vocab_w2i)),
+                                         self.vocab_w2i, seq_begin, seq_end)),
             s2=utils.padseq(utils.seq2id(s2s[:batch_size],
-                                         self.vocab_i2w)),
+                                         self.vocab_i2w, seq_begin, seq_end)),
             sim=sims[:batch_size])
         return batch
 
@@ -110,3 +112,45 @@ class DataSet(object):
     def epochs_completed(self):
         return self._epochs_completed
 
+
+if __name__ == '__main__':
+    sts = STSAll()
+    print(sts.dataset_name)
+    print(sts.dataset_description)
+
+    print(sts.vocab_size)
+    print(sts.w2v.shape)
+
+    sts.create_vocabulary(min_frequency=20, tokenizer='nltk', downcase=True,
+                          max_vocab_size=5000, name='mera vocab')
+
+    print(sts.vocab_size)
+    print(sts.w2v.shape)
+
+    print(sts.vocab_path)
+    print(sts.w2v_path)
+
+    sts.train.open()
+    sts.validation.open()
+    sts.test.open()
+
+    for i in range(10):
+        train_batch = sts.train.next_batch()
+        val_batch = sts.validation.next_batch()
+        test_batch = sts.test.next_batch()
+
+        print(train_batch.s1)
+        print(train_batch.s2)
+        print(train_batch.sim)
+
+        print(val_batch.s1)
+        print(val_batch.s2)
+        print(val_batch.sim)
+
+        print(test_batch.s1)
+        print(test_batch.s2)
+        print(test_batch.sim)
+
+    sts.train.close()
+    sts.validation.close()
+    sts.test.close()
