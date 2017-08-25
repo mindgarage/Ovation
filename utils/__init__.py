@@ -7,6 +7,8 @@ import re
 import spacy
 import tflearn
 import collections
+import numpy as np
+
 from nltk.tokenize import word_tokenize as nltk_tokenizer
 
 shuffle = True
@@ -27,7 +29,7 @@ def padseq(data, pad=0):
     if pad == 0:
         return data
     else:
-        return tflearn.data_utils.pad_sequences(data, maxlen=self.pad,
+        return tflearn.data_utils.pad_sequences(data, maxlen=pad,
                 dtype='int32', padding='post', truncating='post', value=0)
 
 
@@ -104,6 +106,59 @@ def vocabulary_builder(data_paths, min_frequency=5, tokenizer='spacy',
         vocab = vocab[:max_vocab_size]
 
     return vocab
+
+def new_vocabulary(files, dataset_path, min_frequency=5, tokenizer='spacy',
+              downcase=True, max_vocab_size=None, name='new', load_w2v=True):
+
+    vocab_path = os.path.join(dataset_path,
+                              '{}vocab.txt'.format(name))
+    w2v_path = os.path.join(dataset_path,
+                            '{}w2v.npy'.format(name))
+
+    if os.path.exists(vocab_path):
+        return vocab_path, w2v_path
+
+    word_with_counts = vocabulary_builder(files,
+                min_frequency=min_frequency, tokenizer=tokenizer,
+                downcase=downcase, max_vocab_size=max_vocab_size,
+                line_processor=lambda line: " ".join(line.split('\t')[:2]))
+
+    with open(vocab_path, 'w') as vf:
+        vf.write('PAD\t1\n')
+        vf.write('SEQ_BEGIN\t1\n')
+        vf.write('SEQ_END\t1\n')
+        vf.write('UNK\t1\n')
+        for word, count in word_with_counts:
+            vf.write("{}\t{}\n".format(word, count))
+
+    return vocab_path, w2v_path
+
+def load_vocabulary(vocab_path):
+    w2i = {}
+    i2w = {}
+    with open(vocab_path, 'r') as vf:
+        wid = 0
+        for line in vf:
+            term = line.strip().split('\t')[0]
+            w2i[term] = wid
+            i2w[wid] = term
+            wid += 1
+    return w2i, i2w
+
+
+def preload_w2v(w2i, initialize='random'):
+    '''
+    initialize can be "random" or "zeros"
+    '''
+    if initialize == 'random':
+        w2v = np.random.rand(len(w2i), 300)
+    else:
+        w2v = np.zeros((len(w2i), 300))
+
+    for term in w2i:
+        w2v[w2i[term]] = spacy_nlp(term).vector
+
+    return w2v
 
 #from .microsoft_paraphrase_dataset import MicrosoftParaphraseDataset
 from .sts_all import STSAll
