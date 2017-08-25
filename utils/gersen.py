@@ -54,6 +54,10 @@ class Gersen(object):
                 downcase=True, max_vocab_size=None,
                 name='new')
 
+        self.w2i, self.i2w = utils.load_vocabulary(self.vocab_path)
+        self.w2v = utils.preload_w2v(self.w2i)
+        utils.save_w2v(self.w2v)
+
         self.train = DataSet(train_data, (self.w2i, self.i2w), shuffle)
         self.validate = DataSet(validate_data, (self.w2i, self.i2w), shuffle)
         self.test = DataSet(test_data, (self.w2i, self.i2w), shuffle)
@@ -72,7 +76,6 @@ class Gersen(object):
         all_data = []
         for i in range(len(all_files)):
             for j in all_files[i]:
-                print("Opening file: {}".format(j))
                 with open(j, 'r', encoding='utf8') as f:
                     all_data.append((f.readline(), i))
 
@@ -83,6 +86,7 @@ class Gersen(object):
         self.w2i, self.i2w = utils.load_vocabulary(self.vocab_path)
         if load_w2v:
             self.w2v = utils.preload_w2v(self.w2i)
+            utils.save_w2v(self.w2v)
         self.train.set_vocab((self.w2i, self.i2w))
         self.validate.set_vocab((self.w2i, self.i2w))
         self.test.set_vocab((self.w2i, self.i2w))

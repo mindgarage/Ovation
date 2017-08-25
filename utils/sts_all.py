@@ -29,7 +29,7 @@ class STSAll(object):
         self.w2v_path = os.path.join(self.dataset_path, 'w2v.npy')
 
         self.w2i, self.i2w = utils.load_vocabulary(self.vocab_path)
-        self.w2v = self.load_w2v()
+        self.w2v = utils.load_w2v(self.w2v_path)
 
         self.vocab_size = len(self.w2i)
         self.train = DataSet(self.train_path, (self.w2i, self.i2w))
@@ -50,15 +50,10 @@ class STSAll(object):
         self.w2i, self.i2w = utils.load_vocabulary(self.vocab_path)
         if load_w2v:
             self.w2v = utils.preload_w2v(self.w2i)
+            utils.save_w2v(self.w2v)
         self.train.set_vocab((self.w2i, self.i2w))
         self.validation.set_vocab((self.w2i, self.i2w))
         self.test.set_vocab((self.w2i, self.i2w))
-
-    def load_w2v(self):
-        return np.load(self.w2v_path)
-
-    def save_w2v(self, w2v):
-        return np.save(self.w2v_path, w2v)
 
 
 class DataSet(object):
