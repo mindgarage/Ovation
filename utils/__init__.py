@@ -17,17 +17,35 @@ train_validate_split = 0.9
 test_split_large = 0.3
 test_split_small = 0.2
 data_root_directory = os.path.join('/', 'scratch', 'OSA-alpha', 'data', 'datasets')
-spacy_nlp = spacy.load('en_core_web_md')
-spacy_tokenizer = spacy_nlp.tokenizer
 
+spacy_nlp = None
+
+def get_spacy():
+    global spacy_nlp
+    if spacy_nlp is None:
+        spacy_nlp = spacy.load('en_core_web_md')
+    return spacy_nlp
+
+spacy_tokenizer = get_spacy().tokenizer
 
 def default_tokenize(sentence):
     return [i for i in re.split(r"([-.\"',:? !\$#@~()*&\^%;\[\]/\\\+<>\n=])",
                                 sentence) if i!='' and i!=' ' and i!='\n']
 
-def padseq(data, pad=0):
+def padseq(data, pad=0, raw=False):
     if pad == 0:
         return data
+    elif raw:
+        padded_data = []
+        for d in data:
+            diff = pad - len(d)
+            if diff > 0:
+                pads = ['PAD'] * diff
+                d = d + pads
+                padded_data.append(d[:pad])
+            else:
+                padded_data.append(d[:pad])
+        return padded_data
     else:
         return tflearn.data_utils.pad_sequences(data, maxlen=pad,
                 dtype='int32', padding='post', truncating='post', value=0)
@@ -63,12 +81,22 @@ def seq2id(data, w2i, seq_begin=False, seq_end=False):
         buff.append(id_seq)
     return buff
 
+def append_seq_markers(data, seq_begin=True, seq_end=True):
+    data_ = []
+    for d in data:
+        if seq_begin:
+            d = ['SEQ_BEGIN'] + d
+        if seq_end:
+            d = d + ['SEQ_END']
+        data_.append(d)
+    return data_
+
 def tokenize(line, tokenizer='spacy'):
     tokens = []
     if tokenizer == 'spacy':
         doc = spacy_tokenizer(line)
         for token in doc:
-            tokens.append(token)
+            tokens.append(token.text)
     elif tokenizer == 'nltk':
         tokens = nltk_tokenizer(line)
     else:
@@ -113,24 +141,24 @@ def new_vocabulary(files, dataset_path, min_frequency, tokenizer,
                       downcase, max_vocab_size, name):
 
     vocab_path = os.path.join(dataset_path,
-                              '{}_vocab.txt'.format(name))
+                              '{}_{}_{}_{}_{}_vocab.txt'.format(
+                                name.replace(' ', '_'), min_frequency,
+                                tokenizer, downcase, max_vocab_size))
     w2v_path = os.path.join(dataset_path,
-                            '{}_w2v.npy'.format(name))
+                            '{}_{}_{}_{}_{}_w2v.npy'.format(
+                                    name.replace(' ', '_'),
+                                    min_frequency, tokenizer, downcase,
+                                    max_vocab_size))
 
-    if os.path.exists(vocab_path):
+    if os.path.exists(vocab_path) and os.path.exists(w2v_path):
         print("Files exist already")
         return vocab_path, w2v_path
 
-    print("Will count words")
     word_with_counts = vocabulary_builder(files,
                 min_frequency=min_frequency, tokenizer=tokenizer,
                 downcase=downcase, max_vocab_size=max_vocab_size,
                 line_processor=lambda line: " ".join(line.split('\t')[:2]))
 
-    print("Finished counting words:")
-    print(word_with_counts)
-
-    print("Will open file {}".format(vocab_path))
     with open(vocab_path, 'w') as vf:
         vf.write('PAD\t1\n')
         vf.write('SEQ_BEGIN\t1\n')
@@ -148,9 +176,11 @@ def load_vocabulary(vocab_path):
         wid = 0
         for line in vf:
             term = line.strip().split('\t')[0]
-            w2i[term] = wid
-            i2w[wid] = term
-            wid += 1
+            if term not in w2i:
+                w2i[term] = wid
+                i2w[wid] = term
+                wid += 1
+
     return w2i, i2w
 
 
@@ -159,7 +189,7 @@ def preload_w2v(w2i, initialize='random'):
     initialize can be "random" or "zeros"
     '''
     if initialize == 'random':
-        w2v = np.random.rand(len(w2i), 300)
+        w2v = np.random.rand(len(w2i) , 300)
     else:
         w2v = np.zeros((len(w2i), 300))
 
