@@ -48,7 +48,11 @@ class Gersen(object):
                                     train_validate_data[train_length:]
 
         # Create vocabulary
-        self.create_vocabulary(all_files)
+        self.vocab_path, self.w2v_path = utils.new_vocabulary(
+                files=all_files, dataset_path=self.dataset_path,
+                min_frequency=5, tokenizer='spacy',
+                downcase=True, max_vocab_size=None,
+                name='new')
 
         self.train = DataSet(train_data, (self.w2i, self.i2w), shuffle)
         self.validate = DataSet(validate_data, (self.w2i, self.i2w), shuffle)
