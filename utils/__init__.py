@@ -166,6 +166,13 @@ def preload_w2v(w2i, initialize='random'):
 
     return w2v
 
+def load_w2v(path):
+    return np.load(path)
+
+def save_w2v(path, w2v):
+    return np.save(path, w2v)
+
+
 #from .microsoft_paraphrase_dataset import MicrosoftParaphraseDataset
 from .sts_all import STSAll
 #from gersen import Gersen
