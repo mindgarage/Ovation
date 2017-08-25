@@ -32,9 +32,20 @@ def default_tokenize(sentence):
     return [i for i in re.split(r"([-.\"',:? !\$#@~()*&\^%;\[\]/\\\+<>\n=])",
                                 sentence) if i!='' and i!=' ' and i!='\n']
 
-def padseq(data, pad=0):
+def padseq(data, pad=0, raw=False):
     if pad == 0:
         return data
+    elif raw:
+        padded_data = []
+        for d in data:
+            diff = pad - len(d)
+            if diff > 0:
+                pads = ['PAD'] * diff
+                d = d + pads
+                padded_data.append(d[:pad])
+            else:
+                padded_data.append(d[:pad])
+        return padded_data
     else:
         return tflearn.data_utils.pad_sequences(data, maxlen=pad,
                 dtype='int32', padding='post', truncating='post', value=0)
@@ -69,6 +80,16 @@ def seq2id(data, w2i, seq_begin=False, seq_end=False):
 
         buff.append(id_seq)
     return buff
+
+def append_seq_markers(data, seq_begin=True, seq_end=True):
+    data_ = []
+    for d in data:
+        if seq_begin:
+            d = ['SEQ_BEGIN'] + d
+        if seq_end:
+            d = d + ['SEQ_END']
+        data_.append(d)
+    return data_
 
 def tokenize(line, tokenizer='spacy'):
     tokens = []
@@ -120,11 +141,17 @@ def new_vocabulary(files, dataset_path, min_frequency, tokenizer,
                       downcase, max_vocab_size, name):
 
     vocab_path = os.path.join(dataset_path,
-                              '{}_vocab.txt'.format(name))
+                              '{}_{}_{}_{}_{}_vocab.txt'.format(
+                                name.replace(' ', '_'), min_frequency,
+                                tokenizer, downcase, max_vocab_size))
     w2v_path = os.path.join(dataset_path,
-                            '{}_w2v.npy'.format(name))
+                            '{}_{}_{}_{}_{}_w2v.npy'.format(
+                                    name.replace(' ', '_'),
+                                    min_frequency, tokenizer, downcase,
+                                    max_vocab_size))
 
-    if os.path.exists(vocab_path):
+    if os.path.exists(vocab_path) and os.path.exists(w2v_path):
+        print("Files exist already")
         return vocab_path, w2v_path
 
     word_with_counts = vocabulary_builder(files,
@@ -149,9 +176,11 @@ def load_vocabulary(vocab_path):
         wid = 0
         for line in vf:
             term = line.strip().split('\t')[0]
-            w2i[term] = wid
-            i2w[wid] = term
-            wid += 1
+            if term not in w2i:
+                w2i[term] = wid
+                i2w[wid] = term
+                wid += 1
+
     return w2i, i2w
 
 
@@ -160,7 +189,7 @@ def preload_w2v(w2i, initialize='random'):
     initialize can be "random" or "zeros"
     '''
     if initialize == 'random':
-        w2v = np.random.rand(len(w2i), 300)
+        w2v = np.random.rand(len(w2i) , 300)
     else:
         w2v = np.zeros((len(w2i), 300))
 
