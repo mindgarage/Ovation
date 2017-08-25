@@ -118,19 +118,13 @@ def new_vocabulary(files, dataset_path, min_frequency, tokenizer,
                             '{}_w2v.npy'.format(name))
 
     if os.path.exists(vocab_path):
-        print("Files exist already")
         return vocab_path, w2v_path
 
-    print("Will count words")
     word_with_counts = vocabulary_builder(files,
                 min_frequency=min_frequency, tokenizer=tokenizer,
                 downcase=downcase, max_vocab_size=max_vocab_size,
                 line_processor=lambda line: " ".join(line.split('\t')[:2]))
 
-    print("Finished counting words:")
-    print(word_with_counts)
-
-    print("Will open file {}".format(vocab_path))
     with open(vocab_path, 'w') as vf:
         vf.write('PAD\t1\n')
         vf.write('SEQ_BEGIN\t1\n')
@@ -164,7 +158,8 @@ def preload_w2v(w2i, initialize='random'):
         w2v = np.zeros((len(w2i), 300))
 
     for term in w2i:
-        w2v[w2i[term]] = spacy_nlp(term).vector
+        if spacy_nlp(term).has_vector:
+            w2v[w2i[term]] = spacy_nlp(term).vector
 
     return w2v
 

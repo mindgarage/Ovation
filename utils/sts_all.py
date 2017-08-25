@@ -109,4 +109,3 @@ class DataSet(object):
     @property
     def epochs_completed(self):
         return self._epochs_completed
-
