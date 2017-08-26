@@ -1,7 +1,7 @@
 import os
 import utils
 import collections
-import progressbar2
+import progressbar
 
 import numpy as np
 
@@ -76,28 +76,6 @@ class DataSet(object):
     def close(self):
         self.datafile.close()
 
-    def validate_rescale(self, rescale):
-        if rescale[0] > rescale[1]:
-            raise ValueError('Incompatible rescale values. rescale[0] should '
-                             'be less than rescale[1]. An example of a valid '
-                             'rescale is (4, 8).')
-
-    def rescale(self, values, new_range):
-        new_values = []
-        if new_range[0] == 0.0 and new_range[1] == 1.0:
-            return values
-        for value in values:
-            old_range = (0.0, 1.0)
-            OldRange = (old_range[-1] - old_range[0])
-            if (OldRange == 0):
-                NewValue = new_range[0]
-            else:
-                NewRange = (new_range[-1] - new_range[0])
-                NewValue = (((value - old_range[0]) * NewRange) / OldRange) + \
-                           new_range[0]
-            new_values.append(NewValue)
-        return new_values
-    
     def remove_entities(self, data):
         entities = ['PERSON' , 'NORP' , 'FACILITY' , 'ORG' , 'GPE' , 'LOC' +
                     'PRODUCT' , 'EVENT' , 'WORK_OF_ART' , 'LANGUAGE' ,
@@ -111,14 +89,14 @@ class DataSet(object):
                     d_.append(token)
             data_.append(d_)
         return data_
-    
+
     def next_batch(self, batch_size=64, seq_begin=False, seq_end=False,
                    rescale=(0.0, 1.0), pad=0, raw=False, keep_entities=False):
         if not self.datafile:
             raise Exception('The dataset needs to be open before being used. '
                             'Please call dataset.open() before calling '
                             'dataset.next_batch()')
-        self.validate_rescale(rescale)
+        utils.validate_rescale(rescale)
 
         s1s, s2s, sims = [], [], []
 
@@ -153,7 +131,7 @@ class DataSet(object):
         batch = self.Batch(
             s1=s1s,
             s2=s2s,
-            sim=self.rescale(sims[:batch_size], rescale))
+            sim=utils.rescale(sims[:batch_size], rescale, (0.0, 1.0)))
         return batch
 
     def set_vocab(self, vocab):
