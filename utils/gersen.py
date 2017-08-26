@@ -12,11 +12,11 @@ class Gersen(object):
     def __init__(self, train_validate_split=None, test_split=None, use_defaults=False,
                     shuffle=True):
         self.dataset_name = 'GerSEN: Dataset with sentiment-annotated sentences'
-        self.dataset_descriptions = 'The dataset consists of sentiment ' \
+        self.dataset_description = 'The dataset consists of sentiment ' \
                     'annotated sentences.'
         self.dataset_path = os.path.join(utils.data_root_directory, 'gersen')
 
-        if use_defaults or train_validate_split=None or test_split=None:
+        if use_defaults or train_validate_split is None or test_split is None:
             self.initialize_defaults(shuffle)
         else:
             assert train_validate_split is not None
@@ -24,10 +24,10 @@ class Gersen(object):
             self.load_anew(train_validate_split, test_split,
                            shuffle=shuffle)
 
-    def initialize_defaults(self):
+    def initialize_defaults(self, shuffle):
         # For now, we are happy that this works =)
         self.load_anew(train_validate_split=utils.train_validate_split,
-                       test_split=utils.test_split_small)
+                       test_split=utils.test_split_small, shuffle=shuffle)
 
     def load_anew(self, train_validate_split, test_split, shuffle=True):
         #original_dataset = os.path.join(self.dataset_path, 'original')
@@ -49,8 +49,9 @@ class Gersen(object):
                                     train_validate_data[train_length:]
 
         # Create vocabulary
-        self.vocab_path, self.w2v_path = utils.new_vocabulary(
-                files=all_files, dataset_path=self.dataset_path,
+        self.vocab_path, self.w2v_path, self.metadata_path = \
+            utils.new_vocabulary(
+                files=self.all_files, dataset_path=self.dataset_path,
                 min_frequency=5, tokenizer='spacy',
                 downcase=True, max_vocab_size=None,
                 name='new')
@@ -87,7 +88,7 @@ class Gersen(object):
         self.w2i, self.i2w = utils.load_vocabulary(self.vocab_path)
         if load_w2v:
             self.w2v = utils.preload_w2v(self.w2i)
-            utils.save_w2v(self.w2v)
+            utils.save_w2v(self.w2v_path, self.w2v)
         self.train.set_vocab((self.w2i, self.i2w))
         self.validate.set_vocab((self.w2i, self.i2w))
         self.test.set_vocab((self.w2i, self.i2w))
@@ -95,8 +96,9 @@ class Gersen(object):
     def create_vocabulary(self, all_files, min_frequency=5, tokenizer='spacy',
                           downcase=True, max_vocab_size=None,
                           name='new', load_w2v=True):
-        self.vocab_path, self.w2v_path = utils.new_vocabulary(
-                files=all_files, dataset_path=self.dataset_path,
+        self.vocab_path, self.w2v_path, self.metadata_path = \
+            utils.new_vocabulary(
+                files=self.all_files, dataset_path=self.dataset_path,
                 min_frequency=min_frequency,
                 tokenizer=tokenizer, downcase=downcase,
                 max_vocab_size=max_vocab_size, name=name)
@@ -135,7 +137,8 @@ class DataSet(object):
             y = to_categorical(y, nb_classes=3)
 
         if (rescale is not None):
-            pass
+            utils.validate_rescale(rescale)
+            y = utils.rescale(y, rescale, (0.0, 2.0))
 
         if (get_raw):
             return self.Batch(x=x, y=y)
