@@ -179,5 +179,5 @@ def save_w2v(path, w2v):
 
 #from .microsoft_paraphrase_dataset import MicrosoftParaphraseDataset
 from .sts_all import STSAll
-#from gersen import Gersen
+from .gersen import Gersen
 

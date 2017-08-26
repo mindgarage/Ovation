@@ -1,10 +1,13 @@
+from nose.tools import *
+from numpy.testing.utils import assert_string_equal
+
 from utils import gersen
 
 def test_load_dataset():
-    assert Gersen().dataset_name == 'GerSEN: Dataset with sentiment-annotated sentences'
-    assert Gersen().dataset_description == 'The dataset consists of sentiment ' \
-                                        'annotated sentences.'
-    assert Gersen().dataset_path == os.path.join(utils.data_root_directory, 'gersen')
+    assert_string_equal(Gersen().dataset_name, 'GerSEN: Dataset with sentiment-annotated sentences')
+    assert_string_equal(Gersen().dataset_description, 'The dataset consists of sentiment ' \
+                                        'annotated sentences.')
+    assert_string_equal(Gersen().dataset_path, os.path.join(utils.data_root_directory, 'gersen'))
 
 def test_default_sizes():
     g = Gersen(use_defaults=True)
@@ -13,9 +16,9 @@ def test_default_sizes():
     test_len = len(g.test.data)
 
     # We want to assert that the defaults are
-    assert train_len == 1706
-    assert validate_len == 190
-    assert test_len == 473
+    assert_equal(train_len, 1706)
+    assert_equal(validate_len, 190)
+    assert_equal(test_len, 473)
 
 def test_specific_sizes():
     g = Gersen(train_validate_split=0.3, test_split=0.7)
@@ -24,9 +27,9 @@ def test_specific_sizes():
     test_len = len(g.test.data)
 
     # We want to assert that the defaults are
-    assert train_len == 1161
-    assert validate_len == 497
-    assert test_len == 711
+    assert_equal(train_len, 1161)
+    assert_equal(validate_len, 497)
+    assert_equal(test_len, 711)
 
 def test_next_batch():
     g = Gersen(use_defaults=True)
@@ -46,7 +49,7 @@ def test_next_batch():
     lens, batch = g.train.next_batch(batch_size=128, rescale=(0, 1),
                     return_sequence_lengths=True, format='numerical', pad=20)
     assert len(batch) == 128
-    assert 0 <= batch[0][1]) <= 1
+    assert 0 <= batch[0][1] <= 1
     assert lens == batch[:, 1]
 
     # get raw
@@ -56,7 +59,7 @@ def test_next_batch():
 def test_create_vocabulary():
     g = Gersen(use_defaults=True)
     g.create_vocabulary(self.all_files, min_frequency=100)
-    
+
     batch = g.train.next_batch()
     for i in batch:
         # Checks that all elements in the list are identical

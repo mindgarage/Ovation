@@ -12,11 +12,11 @@ class Gersen(object):
     def __init__(self, train_validate_split=None, test_split=None, use_defaults=False,
                     shuffle=True):
         self.dataset_name = 'GerSEN: Dataset with sentiment-annotated sentences'
-        self.dataset_descriptions = 'The dataset consists of sentiment ' \
+        self.dataset_description = 'The dataset consists of sentiment ' \
                     'annotated sentences.'
         self.dataset_path = os.path.join(utils.data_root_directory, 'gersen')
 
-        if use_defaults or train_validate_split=None or test_split=None:
+        if use_defaults or train_validate_split is None or test_split is None:
             self.initialize_defaults(shuffle)
         else:
             assert train_validate_split is not None
@@ -24,10 +24,10 @@ class Gersen(object):
             self.load_anew(train_validate_split, test_split,
                            shuffle=shuffle)
 
-    def initialize_defaults(self):
+    def initialize_defaults(self, shuffle):
         # For now, we are happy that this works =)
         self.load_anew(train_validate_split=utils.train_validate_split,
-                       test_split=utils.test_split_small)
+                       test_split=utils.test_split_small, shuffle=shuffle)
 
     def load_anew(self, train_validate_split, test_split, shuffle=True):
         #original_dataset = os.path.join(self.dataset_path, 'original')
@@ -50,7 +50,7 @@ class Gersen(object):
 
         # Create vocabulary
         self.vocab_path, self.w2v_path = utils.new_vocabulary(
-                files=all_files, dataset_path=self.dataset_path,
+                files=self.all_files, dataset_path=self.dataset_path,
                 min_frequency=5, tokenizer='spacy',
                 downcase=True, max_vocab_size=None,
                 name='new')
@@ -96,7 +96,7 @@ class Gersen(object):
                           downcase=True, max_vocab_size=None,
                           name='new', load_w2v=True):
         self.vocab_path, self.w2v_path = utils.new_vocabulary(
-                files=all_files, dataset_path=self.dataset_path,
+                files=self.all_files, dataset_path=self.dataset_path,
                 min_frequency=min_frequency,
                 tokenizer=tokenizer, downcase=downcase,
                 max_vocab_size=max_vocab_size, name=name)
