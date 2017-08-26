@@ -1,6 +1,7 @@
 import os
 import utils
 import collections
+import progressbar2
 
 import numpy as np
 
@@ -184,22 +185,6 @@ if __name__ == '__main__':
         val_batch = sts.validation.next_batch(200, seq_begin=True, seq_end=True,
                            rescale=(0, 5), pad=100, raw=True,
                                            keep_entities=False)
-        #test_batch = sts.test.next_batch()
-
-        #print(train_batch.s1)
-        #print(train_batch.s2)
-        #print(len(train_batch.sim))
-        #print(train_batch.sim)
-
-        #print(val_batch.s1)
-        #print(val_batch.s2)
-        #print(val_batch.sim)
-        #print(len(val_batch.sim))
-        #print(val_batch.sim)
-
-        #print(test_batch.s1)
-        #print(test_batch.s2)
-        #print(test_batch.sim)
 
     sts.train.close()
     sts.validation.close()
