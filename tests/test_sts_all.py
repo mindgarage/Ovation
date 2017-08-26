@@ -9,9 +9,9 @@ class TestSTSAll(object):
     @classmethod
     def setup_class(self):
         self.sts = STSAll()
-        sts.train.open()
-        sts.validation.open()
-        sts.test.open()
+        self.sts.train.open()
+        self.sts.validation.open()
+        self.sts.test.open()
 
     @classmethod
     def teardown_class(self):
