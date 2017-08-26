@@ -62,10 +62,10 @@ class TestSTSAll(object):
                 max_vocab_size)
 
         assert os.path.exists(self.sts.vocab_path) == True
-        assert new_vocab_file in self.sts.vocab_path
+        assert new_vocab_file in self.sts.vocab_path == True
 
         assert os.path.exists(self.sts.w2v_path) == True
-        assert new_w2v_file in self.sts.w2v_path
+        assert new_w2v_file in self.sts.w2v_path == True
 
-        assert os.path.exists(self.sts.w2v_path) == True
-        assert new_w2v_file in self.sts.w2v_path
+        assert os.path.exists(self.sts.metadata_path) == True
+        assert new_metadata_file in self.sts.metadata_path == True
