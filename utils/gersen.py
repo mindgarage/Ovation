@@ -49,7 +49,8 @@ class Gersen(object):
                                     train_validate_data[train_length:]
 
         # Create vocabulary
-        self.vocab_path, self.w2v_path = utils.new_vocabulary(
+        self.vocab_path, self.w2v_path, self.metadata_path = \
+            utils.new_vocabulary(
                 files=self.all_files, dataset_path=self.dataset_path,
                 min_frequency=5, tokenizer='spacy',
                 downcase=True, max_vocab_size=None,
@@ -95,7 +96,8 @@ class Gersen(object):
     def create_vocabulary(self, all_files, min_frequency=5, tokenizer='spacy',
                           downcase=True, max_vocab_size=None,
                           name='new', load_w2v=True):
-        self.vocab_path, self.w2v_path = utils.new_vocabulary(
+        self.vocab_path, self.w2v_path, self.metadata_path = \
+            utils.new_vocabulary(
                 files=self.all_files, dataset_path=self.dataset_path,
                 min_frequency=min_frequency,
                 tokenizer=tokenizer, downcase=downcase,
@@ -135,7 +137,8 @@ class DataSet(object):
             y = to_categorical(y, nb_classes=3)
 
         if (rescale is not None):
-            pass
+            utils.validate_rescale(rescale)
+            y = utils.rescale(y, rescale, (0.0, 2.0))
 
         if (get_raw):
             return self.Batch(x=x, y=y)
