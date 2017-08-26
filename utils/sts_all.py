@@ -3,7 +3,6 @@ import utils
 import collections
 import progressbar
 
-import numpy as np
 
 
 class STSAll(object):

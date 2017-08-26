@@ -138,7 +138,8 @@ def vocabulary_builder(data_paths, min_frequency=5, tokenizer='spacy',
     return vocab
 
 def new_vocabulary(files, dataset_path, min_frequency, tokenizer,
-                      downcase, max_vocab_size, name):
+                    downcase, max_vocab_size, name,
+                    line_processor=lambda line: " ".join(line.split('\t')[:2])):
 
     vocab_path = os.path.join(dataset_path,
                               '{}_{}_{}_{}_{}_vocab.txt'.format(
@@ -162,7 +163,7 @@ def new_vocabulary(files, dataset_path, min_frequency, tokenizer,
     word_with_counts = vocabulary_builder(files,
                 min_frequency=min_frequency, tokenizer=tokenizer,
                 downcase=downcase, max_vocab_size=max_vocab_size,
-                line_processor=lambda line: " ".join(line.split('\t')[:2]))
+                line_processor=line_processor)
 
     with open(vocab_path, 'w') as vf, open(metadata_path, 'w') as mf:
         mf.write('word\tfreq\n')
