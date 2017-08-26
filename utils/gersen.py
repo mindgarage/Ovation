@@ -87,7 +87,7 @@ class Gersen(object):
         self.w2i, self.i2w = utils.load_vocabulary(self.vocab_path)
         if load_w2v:
             self.w2v = utils.preload_w2v(self.w2i)
-            utils.save_w2v(self.w2v)
+            utils.save_w2v(self.w2v_path, self.w2v)
         self.train.set_vocab((self.w2i, self.i2w))
         self.validate.set_vocab((self.w2i, self.i2w))
         self.test.set_vocab((self.w2i, self.i2w))
