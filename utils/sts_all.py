@@ -1,6 +1,7 @@
 import os
 import utils
 import collections
+import progressbar2
 
 import numpy as np
 
@@ -20,12 +21,13 @@ class STSAll(object):
                'datasets. \n It has 258537 Training sentence pairs, 133102 ' \
                'Test sentence pairs and 59058 validation sentence pairs.'
         self.test_split = 'large'
-        self.dataset_path = os.path.join(utils.data_root_directory, 'mpd')
+        self.dataset_path = os.path.join(utils.data_root_directory, 'sts_all')
         self.train_path = os.path.join(self.dataset_path, 'train', 'train.txt')
         self.validation_path = os.path.join(self.dataset_path, 'validation',
                                             'validation.txt')
         self.test_path = os.path.join(self.dataset_path, 'test', 'test.txt')
         self.vocab_path = os.path.join(self.dataset_path, 'vocab.txt')
+        self.metadata_path = os.path.join(self.dataset_path, 'metadata.txt')
         self.w2v_path = os.path.join(self.dataset_path, 'w2v.npy')
 
         self.w2i, self.i2w = utils.load_vocabulary(self.vocab_path)
@@ -38,19 +40,20 @@ class STSAll(object):
         self.__refresh(load_w2v=False)
 
     def create_vocabulary(self, min_frequency=5, tokenizer='spacy',
-                          downcase=True, max_vocab_size=None,
+                          downcase=False, max_vocab_size=None,
                           name='new', load_w2v=True):
-        self.vocab_path, self.w2v_path = utils.new_vocabulary(
-                [self.train_path], self.dataset_path,
+        self.vocab_path, self.w2v_path, self.metadata_path = \
+            utils.new_vocabulary([self.train_path], self.dataset_path,
                 min_frequency, tokenizer=tokenizer, downcase=downcase,
                 max_vocab_size=max_vocab_size, name=name)
         self.__refresh(load_w2v)
 
     def __refresh(self, load_w2v):
         self.w2i, self.i2w = utils.load_vocabulary(self.vocab_path)
+        self.vocab_size = len(self.w2i)
         if load_w2v:
             self.w2v = utils.preload_w2v(self.w2i)
-            utils.save_w2v(self.w2v)
+            utils.save_w2v(self.w2v_path, self.w2v)
         self.train.set_vocab((self.w2i, self.i2w))
         self.validation.set_vocab((self.w2i, self.i2w))
         self.test.set_vocab((self.w2i, self.i2w))
@@ -61,10 +64,10 @@ class DataSet(object):
 
         self.path = path
         self._epochs_completed = 0
-        self._index_in_epoch = 0
         self.vocab_w2i = vocab[0]
         self.vocab_i2w = vocab[1]
         self.datafile = None
+
         self.Batch = collections.namedtuple('Batch', ['s1', 's2', 'sim'])
 
     def open(self):
@@ -73,16 +76,53 @@ class DataSet(object):
     def close(self):
         self.datafile.close()
 
-    def next_batch(self, batch_size=64, balance=True, seq_begin=False,
-                   seq_end=False):
+    def validate_rescale(self, rescale):
+        if rescale[0] > rescale[1]:
+            raise ValueError('Incompatible rescale values. rescale[0] should '
+                             'be less than rescale[1]. An example of a valid '
+                             'rescale is (4, 8).')
+
+    def rescale(self, values, new_range):
+        new_values = []
+        if new_range[0] == 0.0 and new_range[1] == 1.0:
+            return values
+        for value in values:
+            old_range = (0.0, 1.0)
+            OldRange = (old_range[-1] - old_range[0])
+            if (OldRange == 0):
+                NewValue = new_range[0]
+            else:
+                NewRange = (new_range[-1] - new_range[0])
+                NewValue = (((value - old_range[0]) * NewRange) / OldRange) + \
+                           new_range[0]
+            new_values.append(NewValue)
+        return new_values
+    
+    def remove_entities(self, data):
+        entities = ['PERSON' , 'NORP' , 'FACILITY' , 'ORG' , 'GPE' , 'LOC' +
+                    'PRODUCT' , 'EVENT' , 'WORK_OF_ART' , 'LANGUAGE' ,
+                    'DATE' , 'TIME' , 'PERCENT' , 'MONEY' , 'QUANTITY' ,
+                    'ORDINAL' , 'CARDINAL' , 'BOE', 'EOE']
+        data_ = []
+        for d in data:
+            d_ = []
+            for token in d:
+                if token not in entities:
+                    d_.append(token)
+            data_.append(d_)
+        return data_
+    
+    def next_batch(self, batch_size=64, seq_begin=False, seq_end=False,
+                   rescale=(0.0, 1.0), pad=0, raw=False, keep_entities=False):
         if not self.datafile:
             raise Exception('The dataset needs to be open before being used. '
                             'Please call dataset.open() before calling '
                             'dataset.next_batch()')
+        self.validate_rescale(rescale)
 
         s1s, s2s, sims = [], [], []
 
-        while len(s1s) == batch_size:
+        while len(s1s) < batch_size:
             row = self.datafile.readline()
             if row == '':
                 self._epochs_completed += 1
@@ -94,12 +134,26 @@ class DataSet(object):
             s1s.append(s1)
             s2s.append(s2)
             sims.append(sim)
+
+        if not keep_entities:
+            s1s = self.remove_entities(s1s)
+            s2s = self.remove_entities(s2s)
+
+        if not raw:
+            s1s = utils.seq2id(s1s[:batch_size], self.vocab_w2i, seq_begin,
+                               seq_end)
+            s2s = utils.seq2id(s2s[:batch_size], self.vocab_w2i, seq_begin,
+                               seq_end)
+        else:
+            s1s = utils.append_seq_markers(s1s[:batch_size], seq_begin, seq_end)
+            s2s = utils.append_seq_markers(s2s[:batch_size], seq_begin, seq_end)
+        if pad != 0:
+            s1s = utils.padseq(s1s, pad, raw)
+            s2s = utils.padseq(s2s, pad, raw)
         batch = self.Batch(
-            s1=utils.padseq(utils.seq2id(s1s[:batch_size],
-                                         self.vocab_w2i)),
-            s2=utils.padseq(utils.seq2id(s2s[:batch_size],
-                                         self.vocab_i2w)),
-            sim=sims[:batch_size])
+            s1=s1s,
+            s2=s2s,
+            sim=self.rescale(sims[:batch_size], rescale))
         return batch
 
     def set_vocab(self, vocab):
@@ -109,3 +163,29 @@ class DataSet(object):
     @property
     def epochs_completed(self):
         return self._epochs_completed
+
+if __name__ == '__main__':
+    sts = STSAll()
+    sts.create_vocabulary(min_frequency=10, tokenizer='other', downcase=True,
+                          max_vocab_size=None, name='mera vocab')
+    sts.train.open()
+    sts.validation.open()
+    sts.test.open()
+
+    #for i in range(2):
+    count = 0
+    while True:
+        if sts.validation.epochs_completed == 2:
+            print('done', count)
+            break
+        count += 1
+        #train_batch = sts.train.next_batch(200, seq_begin=True, seq_end=True,
+        #                   rescale=(0, 5), pad=100, raw=True,
+        #                                   keep_entities=False)
+        val_batch = sts.validation.next_batch(200, seq_begin=True, seq_end=True,
+                           rescale=(0, 5), pad=100, raw=True,
+                                           keep_entities=False)
+
+    sts.train.close()
+    sts.validation.close()
+    sts.test.close()
