@@ -26,6 +26,7 @@ class STSAll(object):
                                             'validation.txt')
         self.test_path = os.path.join(self.dataset_path, 'test', 'test.txt')
         self.vocab_path = os.path.join(self.dataset_path, 'vocab.txt')
+        self.metadata_path = os.path.join(self.dataset_path, 'metadata.txt')
         self.w2v_path = os.path.join(self.dataset_path, 'w2v.npy')
 
         self.w2i, self.i2w = utils.load_vocabulary(self.vocab_path)
@@ -40,8 +41,8 @@ class STSAll(object):
     def create_vocabulary(self, min_frequency=5, tokenizer='spacy',
                           downcase=False, max_vocab_size=None,
                           name='new', load_w2v=True):
-        self.vocab_path, self.w2v_path = utils.new_vocabulary(
-                [self.train_path], self.dataset_path,
+        self.vocab_path, self.w2v_path, self.metadata_path = \
+            utils.new_vocabulary([self.train_path], self.dataset_path,
                 min_frequency, tokenizer=tokenizer, downcase=downcase,
                 max_vocab_size=max_vocab_size, name=name)
         self.__refresh(load_w2v)
@@ -164,8 +165,8 @@ class DataSet(object):
 
 if __name__ == '__main__':
     sts = STSAll()
-    sts.create_vocabulary(min_frequency=20, tokenizer='nltk', downcase=True,
-                          max_vocab_size=5000, name='mera vocab')
+    sts.create_vocabulary(min_frequency=10, tokenizer='other', downcase=True,
+                          max_vocab_size=None, name='mera vocab')
     sts.train.open()
     sts.validation.open()
     sts.test.open()
