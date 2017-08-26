@@ -144,30 +144,42 @@ def new_vocabulary(files, dataset_path, min_frequency, tokenizer,
                               '{}_{}_{}_{}_{}_vocab.txt'.format(
                                 name.replace(' ', '_'), min_frequency,
                                 tokenizer, downcase, max_vocab_size))
+    metadata_path = os.path.join(dataset_path,
+                              '{}_{}_{}_{}_{}_metadata.txt'.format(
+                                      name.replace(' ', '_'), min_frequency,
+                                      tokenizer, downcase, max_vocab_size))
     w2v_path = os.path.join(dataset_path,
                             '{}_{}_{}_{}_{}_w2v.npy'.format(
                                     name.replace(' ', '_'),
                                     min_frequency, tokenizer, downcase,
                                     max_vocab_size))
 
-    if os.path.exists(vocab_path) and os.path.exists(w2v_path):
+    if os.path.exists(vocab_path) and os.path.exists(w2v_path) and \
+                                                os.path.exists(metadata_path):
         print("Files exist already")
-        return vocab_path, w2v_path
+        return vocab_path, w2v_path, metadata_path
 
     word_with_counts = vocabulary_builder(files,
                 min_frequency=min_frequency, tokenizer=tokenizer,
                 downcase=downcase, max_vocab_size=max_vocab_size,
                 line_processor=lambda line: " ".join(line.split('\t')[:2]))
 
-    with open(vocab_path, 'w') as vf:
+    with open(vocab_path, 'w') as vf, open(metadata_path, 'w') as mf:
+        mf.write('word\tfreq\n')
+        mf.write('PAD\t1\n')
+        mf.write('SEQ_BEGIN\t1\n')
+        mf.write('SEQ_END\t1\n')
+        mf.write('UNK\t1\n')
+
         vf.write('PAD\t1\n')
         vf.write('SEQ_BEGIN\t1\n')
         vf.write('SEQ_END\t1\n')
         vf.write('UNK\t1\n')
         for word, count in word_with_counts:
             vf.write("{}\t{}\n".format(word, count))
+            mf.write("{}\t{}\n".format(word, count))
 
-    return vocab_path, w2v_path
+    return vocab_path, w2v_path, metadata_path
 
 def load_vocabulary(vocab_path):
     w2i = {}
