@@ -1,7 +1,7 @@
 import os
 import utils
 import collections
-import progressbar2
+import progressbar
 
 import numpy as np
 
