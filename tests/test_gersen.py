@@ -37,21 +37,27 @@ def test_next_batch():
 
     # batch of 64, one hot, no padding, no sequence lengths
     batch = g.train.next_batch()
-    assert_equal(len(batch), 64)
-    assert_equal(len(batch[0][1]), 3)
+    assert_equal(len(batch.x), 64)
+    assert_equal(len(batch.y), 64)
+    assert_equal(len(batch.y[0]), 3)
 
     # batch of 32, numerical, padding, no sequence lengths
     batch = g.train.next_batch(batch_size=32, format='numerical', pad=20)
-    assert_equal(len(batch), 32)
-    assert_equal(len(batch[0][0]), 20)
-    assert_equal(len(batch[0][1]), 1)
+    assert_equal(len(batch.x), 32)
+    assert_equal(len(batch.y), 32)
+    assert_equal(len(batch.x[0]), 20)
+    assert_is_instance(batch.y[0], int)
 
     # batch of 128, rescaled, sequence lengths
-    lens, batch = g.train.next_batch(batch_size=128, rescale=(0, 1),
+    batch, less = g.train.next_batch(batch_size=128, rescale=(0, 1),
                     return_sequence_lengths=True, format='numerical', pad=20)
-    assert_equal(len(batch), 128)
-    assert_true(0 <= batch[0][1] <= 1)
-    assert_true(lens == batch[:, 1])
+    assert_equal(len(batch.x), 128)
+    assert_equal(len(batch.y), 128)
+    assert_less_equal(0, batch.y[0])
+    assert_greater(batch.y[0], 1)
+
+    # This is exactly how it is constructed. Makes no sense. Find other way
+    #assert_true(lens == [len(x) for x in batch.x])
 
     # get raw
     batch = g.train.next_batch(get_raw=True)
@@ -59,11 +65,11 @@ def test_next_batch():
 
 def test_create_vocabulary():
     g = Gersen(use_defaults=True)
-    g.create_vocabulary(g.all_files, min_frequency=100)
+    g.create_vocabulary(g.all_files, min_frequency=100000)
 
     batch = g.train.next_batch()
-    for i in batch:
+    for i in batch.x:
         # Checks that all elements in the list are identical
-        assert_less(len(set(i[0])), 1)
-        assert_equal(i[0][0], 3)
+        assert_equal(len(set(i)), 1)
+        assert_equal(i[0], 3)
 

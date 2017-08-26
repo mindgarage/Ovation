@@ -217,6 +217,28 @@ def load_w2v(path):
 def save_w2v(path, w2v):
     return np.save(path, w2v)
 
+def validate_rescale(rescale):
+    if rescale[0] > rescale[1]:
+        raise ValueError('Incompatible rescale values. rescale[0] should '
+                         'be less than rescale[1]. An example of a valid '
+                         'rescale is (4, 8).')
+
+def rescale(values, new_range, original_range):
+    if new_range == original_range:
+        return values
+
+    rescaled_values = []
+    for value in values:
+        original_range_size = (old_range[-1] - old_range[0])
+        if (original_range_size == 0):
+            new_value = new_range[0]
+        else:
+            new_range_size = (new_range[-1] - new_range[0])
+            new_value = (((value - old_range[0]) * new_range_size) / original_range_size) + \
+                       new_range[0]
+        rescaled_values.append(new_value)
+    return rescaled_values
+
 
 #from .microsoft_paraphrase_dataset import MicrosoftParaphraseDataset
 from .sts_all import STSAll
