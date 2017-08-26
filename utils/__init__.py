@@ -229,11 +229,11 @@ def rescale(values, new_range, original_range):
 
     rescaled_values = []
     for value in values:
-        original_range_size = (old_range[-1] - old_range[0])
+        original_range_size = (old_range[1] - old_range[0])
         if (original_range_size == 0):
             new_value = new_range[0]
         else:
-            new_range_size = (new_range[-1] - new_range[0])
+            new_range_size = (new_range[1] - new_range[0])
             new_value = (((value - old_range[0]) * new_range_size) / original_range_size) + \
                        new_range[0]
         rescaled_values.append(new_value)

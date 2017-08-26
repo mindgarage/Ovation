@@ -131,7 +131,7 @@ class DataSet(object):
         batch = self.Batch(
             s1=s1s,
             s2=s2s,
-            sim=self.rescale(sims[:batch_size], rescale))
+            sim=utils.rescale(sims[:batch_size], rescale, (0.0, 1.0)))
         return batch
 
     def set_vocab(self, vocab):

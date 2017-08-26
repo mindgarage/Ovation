@@ -138,7 +138,7 @@ class DataSet(object):
 
         if (rescale is not None):
             utils.validate_rescale(rescale)
-            utils.rescale(y, rescale, (0,2))
+            y = utils.rescale(y, rescale, (0.0, 2.0))
 
         if (get_raw):
             return self.Batch(x=x, y=y)

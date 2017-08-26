@@ -49,7 +49,7 @@ def test_next_batch():
     assert_is_instance(batch.y[0], int)
 
     # batch of 128, rescaled, sequence lengths
-    batch, less = g.train.next_batch(batch_size=128, rescale=(0, 1),
+    batch, less = g.train.next_batch(batch_size=128, rescale=(0.0, 1.0),
                     return_sequence_lengths=True, format='numerical', pad=20)
     assert_equal(len(batch.x), 128)
     assert_equal(len(batch.y), 128)
