@@ -11,28 +11,21 @@ def setup_dataset(cl):
     ret.test.open()
     return ret
 
-def teardown_dataset(obj):
-    obj.ds.train.close()
-    obj.ds.validation.close()
-    obj.ds.test.close()
+def teardown_dataset(ds):
+    ds.train.close()
+    ds.validation.close()
+    ds.test.close()
 
 class TestSTS(object):
     @classmethod
     def dataset_class(cl):
         return STS
 
-    #@classmethod
-    #def setup_class(cl):
-    #    cl.ds = setup_dataset(TestSTS.dataset_class())
-
-    @classmethod
-    def teardown_class(cl):
-        teardown_dataset(cl)
-
     def setUp(self):
-        self.ds = setup_dataset(TestSTS.dataset_class())
+        self.ds = setup_dataset(self.dataset_class())
 
     def teardown(self):
+        teardown_dataset(self.ds)
         if 'test' in self.ds.vocab_path:
             os.remove(self.ds.vocab_path)
         if 'test' in self.ds.metadata_path:
