@@ -182,6 +182,7 @@ def new_vocabulary(files, dataset_path, min_frequency, tokenizer,
 
     return vocab_path, w2v_path, metadata_path
 
+
 def load_vocabulary(vocab_path):
     w2i = {}
     i2w = {}
@@ -243,6 +244,14 @@ def rescale(values, new_range, original_range):
 
 
 #from .microsoft_paraphrase_dataset import MicrosoftParaphraseDataset
-from .sts_all import STSAll
 from .gersen import Gersen
+from .sts import STS
+from .sts_large import STSLarge
+from .ppdb import PPDB
+from .mspd import MSPD
+from .quora import Quora
+from .stack_exchange import StackExchange
+from .sem_eval import SemEval
+from .sick import Sick
+#from gersen import Gersen
 

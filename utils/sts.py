@@ -1,13 +1,11 @@
 import os
 import utils
 import collections
-import progressbar
 
 
-
-class STSAll(object):
+class STS(object):
     def __init__(self, train_validation_split=None, test_split=None,
-                 use_defaults=True):
+                 use_defaults=True, subset='sts_small'):
         if train_validation_split is not None or test_split is not None or \
                 use_defaults is False:
             raise NotImplementedError('This Dataset does not implement '
@@ -20,7 +18,9 @@ class STSAll(object):
                'datasets. \n It has 258537 Training sentence pairs, 133102 ' \
                'Test sentence pairs and 59058 validation sentence pairs.'
         self.test_split = 'large'
-        self.dataset_path = os.path.join(utils.data_root_directory, 'sts_all')
+        self.dataset = subset
+        self.dataset_path = os.path.join(utils.data_root_directory,
+                                         self.dataset)
         self.train_path = os.path.join(self.dataset_path, 'train', 'train.txt')
         self.validation_path = os.path.join(self.dataset_path, 'validation',
                                             'validation.txt')
@@ -140,29 +140,3 @@ class DataSet(object):
     @property
     def epochs_completed(self):
         return self._epochs_completed
-
-if __name__ == '__main__':
-    sts = STSAll()
-    sts.create_vocabulary(min_frequency=10, tokenizer='other', downcase=True,
-                          max_vocab_size=None, name='mera vocab')
-    sts.train.open()
-    sts.validation.open()
-    sts.test.open()
-
-    #for i in range(2):
-    count = 0
-    while True:
-        if sts.validation.epochs_completed == 2:
-            print('done', count)
-            break
-        count += 1
-        #train_batch = sts.train.next_batch(200, seq_begin=True, seq_end=True,
-        #                   rescale=(0, 5), pad=100, raw=True,
-        #                                   keep_entities=False)
-        val_batch = sts.validation.next_batch(200, seq_begin=True, seq_end=True,
-                           rescale=(0, 5), pad=100, raw=True,
-                                           keep_entities=False)
-
-    sts.train.close()
-    sts.validation.close()
-    sts.test.close()
