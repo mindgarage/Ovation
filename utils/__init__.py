@@ -182,6 +182,7 @@ def new_vocabulary(files, dataset_path, min_frequency, tokenizer,
 
     return vocab_path, w2v_path, metadata_path
 
+
 def load_vocabulary(vocab_path):
     w2i = {}
     i2w = {}
@@ -246,5 +247,6 @@ def rescale(values, new_range, original_range):
 from .gersen import Gersen
 from .sts import STS
 from .ppdb import PPDB
+from .mspd import MSPD
 #from gersen import Gersen
 
