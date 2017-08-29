@@ -57,6 +57,7 @@ class TestSTS(object):
 
 
     def test_init(self):
+        self.sts = STS()
         assert_not_equal(self.sts, None)
         assert_equal(self.sts.dataset_name, 'Semantic Text Similarity - All')
         assert_equal(self.sts.test_split, 'large')
@@ -203,6 +204,18 @@ class TestSTS(object):
         assert_equal(is_valid_train_sim_range, True)
         assert_equal(is_valid_validation_sim_range, True)
         assert_equal(is_valid_test_sim_range, True)
+
+    def test_create_vocab_default_tokenizer(self):
+        name, min_frequency, tokenizer, downcase, max_vocab_size = \
+            'test', 10, 'default', True, None
+
+        new_vocab_file, new_w2v_file, new_metadata_file, in_new_vocab, \
+        in_new_w2v, in_new_metadata = self.create_vocab(min_frequency,
+                                                        tokenizer, downcase,
+                                                        max_vocab_size, name)
+        self.validate_vocabulary(in_new_vocab, in_new_w2v, in_new_metadata)
+
+
 
     def validate_vocabulary(self, in_new_vocab, in_new_w2v, in_new_metadata):
         assert_equal(self.sts.w2v.shape[0], len(self.sts.w2i))
