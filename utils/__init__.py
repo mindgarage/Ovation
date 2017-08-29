@@ -246,7 +246,12 @@ def rescale(values, new_range, original_range):
 #from .microsoft_paraphrase_dataset import MicrosoftParaphraseDataset
 from .gersen import Gersen
 from .sts import STS
+from .sts_large import STSLarge
 from .ppdb import PPDB
 from .mspd import MSPD
+from .quora import Quora
+from .stack_exchange import StackExchange
+from .sem_eval import SemEval
+from .sick import Sick
 #from gersen import Gersen
 
