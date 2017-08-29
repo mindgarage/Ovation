@@ -200,6 +200,7 @@ def preload_w2v(w2i, initialize='random'):
     '''
     initialize can be "random" or "zeros"
     '''
+    spacy_nlp = get_spacy()
     if initialize == 'random':
         w2v = np.random.rand(len(w2i) , 300)
     else:
@@ -219,6 +220,8 @@ def save_w2v(path, w2v):
 
 
 #from .microsoft_paraphrase_dataset import MicrosoftParaphraseDataset
-from .sts_all import STSAll
 from .gersen import Gersen
+from .sts import STS
+from .ppdb import PPDB
+#from gersen import Gersen
 

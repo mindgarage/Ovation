@@ -1,40 +1,40 @@
 import os
-from utils import STS
+from utils import PPDB
 from nose.tools import assert_equal
 from nose.tools import assert_not_equal
 from nose.tools import assert_is_instance
 
-class TestSTS(object):
+class TestPPDB(object):
     @classmethod
     def setup_class(self):
-        self.sts = STS()
-        self.sts.train.open()
-        self.sts.validation.open()
-        self.sts.test.open()
+        self.ppdb = PPDB()
+        self.ppdb.train.open()
+        self.ppdb.validation.open()
+        self.ppdb.test.open()
 
     @classmethod
     def teardown_class(self):
-        self.sts.train.close()
-        self.sts.validation.close()
-        self.sts.test.close()
+        self.ppdb.train.close()
+        self.ppdb.validation.close()
+        self.ppdb.test.close()
 
     def setUp(self):
-        self.sts = STS()
-        self.sts.train.open()
-        self.sts.validation.open()
-        self.sts.test.open()
+        self.ppdb = PPDB()
+        self.ppdb.train.open()
+        self.ppdb.validation.open()
+        self.ppdb.test.open()
 
     def teardown(self):
-        if 'test' in self.sts.vocab_path:
-            os.remove(self.sts.vocab_path)
-        if 'test' in self.sts.metadata_path:
-            os.remove(self.sts.metadata_path)
-        if 'test' in self.sts.w2v_path:
-            os.remove(self.sts.w2v_path)
+        if 'test' in self.ppdb.vocab_path:
+            os.remove(self.ppdb.vocab_path)
+        if 'test' in self.ppdb.metadata_path:
+            os.remove(self.ppdb.metadata_path)
+        if 'test' in self.ppdb.w2v_path:
+            os.remove(self.ppdb.w2v_path)
 
     def create_vocab(self, min_frequency, tokenizer, downcase,
                      max_vocab_size, name):
-        self.sts.create_vocabulary(min_frequency=min_frequency,
+        self.ppdb.create_vocabulary(min_frequency=min_frequency,
                                    tokenizer=tokenizer, downcase=downcase,
                                    max_vocab_size=max_vocab_size, name=name)
 
@@ -48,24 +48,22 @@ class TestSTS(object):
                 name.replace(' ', '_'), min_frequency, tokenizer, downcase,
                 max_vocab_size)
 
-        in_new_vocab = new_vocab_file in self.sts.vocab_path
-        in_new_w2v = new_w2v_file in self.sts.w2v_path
-        in_new_metadata = new_metadata_file in self.sts.metadata_path
+        in_new_vocab = new_vocab_file in self.ppdb.vocab_path
+        in_new_w2v = new_w2v_file in self.ppdb.w2v_path
+        in_new_metadata = new_metadata_file in self.ppdb.metadata_path
 
         return new_vocab_file, new_w2v_file, new_metadata_file, in_new_vocab,\
                in_new_w2v, in_new_metadata
 
-
     def test_init(self):
-        self.sts = STS()
-        assert_not_equal(self.sts, None)
-        assert_equal(self.sts.dataset_name, 'Semantic Text Similarity - All')
-        assert_equal(self.sts.test_split, 'large')
-        assert_equal(self.sts.vocab_size, 62451)
-        assert_equal(self.sts.w2v.shape[0], 62451)
-        assert_equal(self.sts.w2v.shape[1], 300)
-        assert_equal(self.sts.w2v.shape[0], len(self.sts.w2i))
-        assert_equal(len(self.sts.w2i), len(self.sts.i2w))
+        assert_not_equal(self.ppdb, None)
+        assert_equal(self.ppdb.dataset_name, 'Semantic Text Similarity - All')
+        assert_equal(self.ppdb.test_split, 'large')
+        assert_equal(self.ppdb.vocab_size, 62451)
+        assert_equal(self.ppdb.w2v.shape[0], 62451)
+        assert_equal(self.ppdb.w2v.shape[1], 300)
+        assert_equal(self.ppdb.w2v.shape[0], len(self.ppdb.w2i))
+        assert_equal(len(self.ppdb.w2i), len(self.ppdb.i2w))
 
     def test_create_vocabulary(self):
         name, min_frequency, tokenizer, downcase, max_vocab_size = \
@@ -87,7 +85,7 @@ class TestSTS(object):
                                                         max_vocab_size, name)
 
         self.validate_vocabulary(in_new_vocab, in_new_w2v, in_new_metadata)
-        assert_equal(self.sts.vocab_size, 24)
+        assert_equal(self.ppdb.vocab_size, 24)
 
     def test_create_vocab_nltk_tokenizer(self):
         name, min_frequency, tokenizer, downcase, max_vocab_size = \
@@ -110,9 +108,9 @@ class TestSTS(object):
         self.validate_vocabulary(in_new_vocab, in_new_w2v, in_new_metadata)
 
     def test_batch_size(self):
-        train_batch = self.sts.train.next_batch()
-        validation_batch = self.sts.validation.next_batch()
-        test_batch = self.sts.test.next_batch()
+        train_batch = self.ppdb.train.next_batch()
+        validation_batch = self.ppdb.validation.next_batch()
+        test_batch = self.ppdb.test.next_batch()
         assert_equal(len(train_batch.s1), 64)
         assert_equal(len(train_batch.s2), 64)
         assert_equal(len(train_batch.sim), 64)
@@ -123,9 +121,9 @@ class TestSTS(object):
         assert_equal(len(test_batch.s2), 64)
         assert_equal(len(test_batch.sim), 64)
 
-        train_batch = self.sts.train.next_batch(100)
-        validation_batch = self.sts.validation.next_batch(100)
-        test_batch = self.sts.test.next_batch(100)
+        train_batch = self.ppdb.train.next_batch(100)
+        validation_batch = self.ppdb.validation.next_batch(100)
+        test_batch = self.ppdb.test.next_batch(100)
         assert_equal(len(train_batch.s1), 100)
         assert_equal(len(train_batch.s2), 100)
         assert_equal(len(train_batch.sim), 100)
@@ -137,23 +135,23 @@ class TestSTS(object):
         assert_equal(len(test_batch.sim), 100)
 
     def test_batch_seq_begin(self):
-        train_batch = self.sts.train.next_batch(seq_begin=True)
-        validation_batch = self.sts.validation.next_batch(seq_begin=True)
-        test_batch = self.sts.test.next_batch(seq_begin=True)
-        assert_equal(train_batch.s1[0][0], self.sts.w2i['SEQ_BEGIN'])
-        assert_equal(train_batch.s2[0][0], self.sts.w2i['SEQ_BEGIN'])
+        train_batch = self.ppdb.train.next_batch(seq_begin=True)
+        validation_batch = self.ppdb.validation.next_batch(seq_begin=True)
+        test_batch = self.ppdb.test.next_batch(seq_begin=True)
+        assert_equal(train_batch.s1[0][0], self.ppdb.w2i['SEQ_BEGIN'])
+        assert_equal(train_batch.s2[0][0], self.ppdb.w2i['SEQ_BEGIN'])
 
-        assert_equal(validation_batch.s1[0][0], self.sts.w2i['SEQ_BEGIN'])
-        assert_equal(validation_batch.s2[0][0], self.sts.w2i['SEQ_BEGIN'])
+        assert_equal(validation_batch.s1[0][0], self.ppdb.w2i['SEQ_BEGIN'])
+        assert_equal(validation_batch.s2[0][0], self.ppdb.w2i['SEQ_BEGIN'])
 
-        assert_equal(test_batch.s1[0][0], self.sts.w2i['SEQ_BEGIN'])
-        assert_equal(test_batch.s2[0][0], self.sts.w2i['SEQ_BEGIN'])
+        assert_equal(test_batch.s1[0][0], self.ppdb.w2i['SEQ_BEGIN'])
+        assert_equal(test_batch.s2[0][0], self.ppdb.w2i['SEQ_BEGIN'])
 
 
-        train_batch = self.sts.train.next_batch(seq_begin=True, raw=True)
-        validation_batch = self.sts.validation.next_batch(seq_begin=True,
+        train_batch = self.ppdb.train.next_batch(seq_begin=True, raw=True)
+        validation_batch = self.ppdb.validation.next_batch(seq_begin=True,
                                                           raw=True)
-        test_batch = self.sts.test.next_batch(seq_begin=True, raw=True)
+        test_batch = self.ppdb.test.next_batch(seq_begin=True, raw=True)
         assert_equal(train_batch.s1[0][0], 'SEQ_BEGIN')
         assert_equal(train_batch.s2[0][0], 'SEQ_BEGIN')
 
@@ -163,11 +161,10 @@ class TestSTS(object):
         assert_equal(test_batch.s1[0][0], 'SEQ_BEGIN')
         assert_equal(test_batch.s2[0][0], 'SEQ_BEGIN')
 
-
     def test_batch_pad(self):
-        train_batch = self.sts.train.next_batch(pad=35)
-        validation_batch = self.sts.validation.next_batch(pad=35)
-        test_batch = self.sts.test.next_batch(pad=35)
+        train_batch = self.ppdb.train.next_batch(pad=35)
+        validation_batch = self.ppdb.validation.next_batch(pad=35)
+        test_batch = self.ppdb.test.next_batch(pad=35)
         is_valid_train_batch = self.validate_batch_pad_length(train_batch,
                                                               pad_len=35)
         is_valid_validation_batch = self.validate_batch_pad_length(
@@ -179,9 +176,9 @@ class TestSTS(object):
         assert_equal(is_valid_test_batch, True)
 
     def test_batch_raw(self):
-        train_batch = self.sts.train.next_batch(raw=True)
-        validation_batch = self.sts.validation.next_batch(raw=True)
-        test_batch = self.sts.test.next_batch(raw=True)
+        train_batch = self.ppdb.train.next_batch(raw=True)
+        validation_batch = self.ppdb.validation.next_batch(raw=True)
+        test_batch = self.ppdb.test.next_batch(raw=True)
 
         assert_is_instance(train_batch.s1[0][0], str)
         assert_is_instance(train_batch.s2[0][0], str)
@@ -191,9 +188,9 @@ class TestSTS(object):
         assert_is_instance(test_batch.s2[0][0], str)
 
     def test_batch_rescale(self):
-        train_batch = self.sts.train.next_batch(rescale=(5, 10))
-        validation_batch = self.sts.validation.next_batch(rescale=(5, 10))
-        test_batch = self.sts.test.next_batch(rescale=(5, 10))
+        train_batch = self.ppdb.train.next_batch(rescale=(5, 10))
+        validation_batch = self.ppdb.validation.next_batch(rescale=(5, 10))
+        test_batch = self.ppdb.test.next_batch(rescale=(5, 10))
 
         is_valid_train_sim_range = self.validate_sim_range(train_batch,
                                                             (5, 10))
@@ -205,26 +202,14 @@ class TestSTS(object):
         assert_equal(is_valid_validation_sim_range, True)
         assert_equal(is_valid_test_sim_range, True)
 
-    def test_create_vocab_default_tokenizer(self):
-        name, min_frequency, tokenizer, downcase, max_vocab_size = \
-            'test', 10, 'default', True, None
-
-        new_vocab_file, new_w2v_file, new_metadata_file, in_new_vocab, \
-        in_new_w2v, in_new_metadata = self.create_vocab(min_frequency,
-                                                        tokenizer, downcase,
-                                                        max_vocab_size, name)
-        self.validate_vocabulary(in_new_vocab, in_new_w2v, in_new_metadata)
-
-
-
     def validate_vocabulary(self, in_new_vocab, in_new_w2v, in_new_metadata):
-        assert_equal(self.sts.w2v.shape[0], len(self.sts.w2i))
-        assert_equal(len(self.sts.w2i), len(self.sts.i2w))
-        assert os.path.exists(self.sts.vocab_path) == True
+        assert_equal(self.ppdb.w2v.shape[0], len(self.ppdb.w2i))
+        assert_equal(len(self.ppdb.w2i), len(self.ppdb.i2w))
+        assert os.path.exists(self.ppdb.vocab_path) == True
         assert in_new_vocab == True
-        assert os.path.exists(self.sts.w2v_path) == True
+        assert os.path.exists(self.ppdb.w2v_path) == True
         assert in_new_w2v == True
-        assert os.path.exists(self.sts.metadata_path) == True
+        assert os.path.exists(self.ppdb.metadata_path) == True
         assert in_new_metadata == True
 
     def validate_batch_pad_length(self, batch, pad_len):
