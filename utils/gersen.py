@@ -1,10 +1,9 @@
 import os
+import csv
 import random
 import glob
 import collections
 import utils
-
-import numpy as np
 
 from tflearn.data_utils import to_categorical
 
@@ -16,21 +15,48 @@ class Gersen(object):
                     'annotated sentences.'
         self.dataset_path = os.path.join(utils.data_root_directory, 'gersen')
 
-        if use_defaults or train_validate_split is None or test_split is None:
+        self.train_path = os.path.join(self.dataset_path, 'train.txt')
+        self.validate_path = os.path.join(self.dataset_path, 'validate.txt')
+        self.test_path = os.path.join(self.dataset_path, 'test.txt')
+
+        self.vocab_path = os.path.join(self.dataset_path, 'vocab.txt')
+        self.metadata_path = os.path.join(self.dataset_path, 'metadata.txt')
+        self.w2v_path = os.path.join(self.dataset_path, 'w2v.npy')
+
+        if (use_defaults or
+                train_validate_split is None or
+                test_split is None) and \
+                (os.path.exists(self.train_path) and
+                os.path.exists(self.validate_path) and
+                os.path.exists(self.test_path) and
+                os.path.exists(self.vocab_path) and
+                os.path.exists(self.metadata_path) and
+                os.path.exists(self.w2v_path)):
             self.initialize_defaults(shuffle)
         else:
-            assert train_validate_split is not None
-            assert test_split is not None
+            if test_split is None:
+                test_split = utils.test_split_small
+            if train_validate_split is None:
+                train_validate_split = utils.train_validate_split
             self.load_anew(train_validate_split, test_split,
                            shuffle=shuffle)
 
     def initialize_defaults(self, shuffle):
         # For now, we are happy that this works =)
-        self.load_anew(train_validate_split=utils.train_validate_split,
-                       test_split=utils.test_split_small, shuffle=shuffle)
+        #self.load_anew(train_validate_split=utils.train_validate_split,
+        #               test_split=utils.test_split_small, shuffle=shuffle)
+        train_data = self.load_data(self.train_path)
+        validate_data = self.load_data(self.validate_path)
+        test_data = self.load_data(self.test_path)
+
+        self.w2i, self.i2w = utils.load_vocabulary(self.vocab_path)
+        self.w2v = utils.load_w2v(self.w2v_path)
+
+        self.train = DataSet(train_data, (self.w2i, self.i2w), shuffle)
+        self.validate = DataSet(validate_data, (self.w2i, self.i2w), shuffle)
+        self.test = DataSet(test_data, (self.w2i, self.i2w), shuffle)
 
     def load_anew(self, train_validate_split, test_split, shuffle=True):
-        #original_dataset = os.path.join(self.dataset_path, 'original')
         all_data, self.all_files = self.load_all_data(self.dataset_path)
 
         if shuffle:
@@ -48,9 +74,12 @@ class Gersen(object):
         train_data, validate_data = train_validate_data[:train_length], \
                                     train_validate_data[train_length:]
 
+        self.dump_all_data(train_data, validate_data, test_data)
+
         # Create vocabulary
-        self.vocab_path, self.w2v_path = utils.new_vocabulary(
-                files=self.all_files, dataset_path=self.dataset_path,
+        self.vocab_path, self.w2v_path, self.metadata_path = \
+            utils.new_vocabulary(
+                files=[self.train_path], dataset_path=self.dataset_path,
                 min_frequency=5, tokenizer='spacy',
                 downcase=True, max_vocab_size=None,
                 name='new')
@@ -62,6 +91,21 @@ class Gersen(object):
         self.train = DataSet(train_data, (self.w2i, self.i2w), shuffle)
         self.validate = DataSet(validate_data, (self.w2i, self.i2w), shuffle)
         self.test = DataSet(test_data, (self.w2i, self.i2w), shuffle)
+
+    def load_data(self, path):
+        with open(path, 'r') as f:
+            csv_reader = csv.reader(f, delimiter='\t')
+            return [i for i in csv_reader]
+
+    def dump_data(self, data, path):
+        with open(path, 'w') as f:
+            for i in data:
+                f.write("{}\t{}\n".format(i[0], i[1]))
+
+    def dump_all_data(self, train_data, validate_data, test_data):
+        self.dump_data(train_data, self.train_path)
+        self.dump_data(validate_data, self.validate_path)
+        self.dump_data(test_data, self.test_path)
 
     def load_all_data(self, path):
         all_positive = glob.glob(os.path.join(path, 'positive/*.txt'))
@@ -95,8 +139,9 @@ class Gersen(object):
     def create_vocabulary(self, all_files, min_frequency=5, tokenizer='spacy',
                           downcase=True, max_vocab_size=None,
                           name='new', load_w2v=True):
-        self.vocab_path, self.w2v_path = utils.new_vocabulary(
-                files=self.all_files, dataset_path=self.dataset_path,
+        self.vocab_path, self.w2v_path, self.metadata_path = \
+            utils.new_vocabulary(
+                files=all_files, dataset_path=self.dataset_path,
                 min_frequency=min_frequency,
                 tokenizer=tokenizer, downcase=downcase,
                 max_vocab_size=max_vocab_size, name=name)
@@ -135,7 +180,8 @@ class DataSet(object):
             y = to_categorical(y, nb_classes=3)
 
         if (rescale is not None):
-            pass
+            utils.validate_rescale(rescale)
+            y = utils.rescale(y, rescale, (0.0, 2.0))
 
         if (get_raw):
             return self.Batch(x=x, y=y)
@@ -166,15 +212,4 @@ class DataSet(object):
     def set_vocab(self, vocab):
         self.vocab_w2i = vocab[0]
         self.vocab_i2w = vocab[1]
-
-if __name__ == '__main__':
-    g = Gersen(use_defaults=True)
-    a = g.train.next_batch()
-    print(len(a.x))
-    print(len(a.y))
-
-    print(g.train.data)
-    print(len(g.train.data))
-    print(len(g.validate.data))
-    print(len(g.test.data))
 

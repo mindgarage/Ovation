@@ -138,7 +138,8 @@ def vocabulary_builder(data_paths, min_frequency=5, tokenizer='spacy',
     return vocab
 
 def new_vocabulary(files, dataset_path, min_frequency, tokenizer,
-                      downcase, max_vocab_size, name):
+                    downcase, max_vocab_size, name,
+                    line_processor=lambda line: " ".join(line.split('\t')[:2])):
 
     vocab_path = os.path.join(dataset_path,
                               '{}_{}_{}_{}_{}_vocab.txt'.format(
@@ -162,7 +163,7 @@ def new_vocabulary(files, dataset_path, min_frequency, tokenizer,
     word_with_counts = vocabulary_builder(files,
                 min_frequency=min_frequency, tokenizer=tokenizer,
                 downcase=downcase, max_vocab_size=max_vocab_size,
-                line_processor=lambda line: " ".join(line.split('\t')[:2]))
+                line_processor=line_processor)
 
     with open(vocab_path, 'w') as vf, open(metadata_path, 'w') as mf:
         mf.write('word\tfreq\n')
@@ -217,6 +218,28 @@ def load_w2v(path):
 
 def save_w2v(path, w2v):
     return np.save(path, w2v)
+
+def validate_rescale(rescale):
+    if rescale[0] > rescale[1]:
+        raise ValueError('Incompatible rescale values. rescale[0] should '
+                         'be less than rescale[1]. An example of a valid '
+                         'rescale is (4, 8).')
+
+def rescale(values, new_range, original_range):
+    if new_range == original_range:
+        return values
+
+    rescaled_values = []
+    for value in values:
+        original_range_size = (original_range[1] - original_range[0])
+        if (original_range_size == 0):
+            new_value = new_range[0]
+        else:
+            new_range_size = (new_range[1] - new_range[0])
+            new_value = (((value - original_range[0]) * new_range_size) / original_range_size) + \
+                       new_range[0]
+        rescaled_values.append(new_value)
+    return rescaled_values
 
 
 #from .microsoft_paraphrase_dataset import MicrosoftParaphraseDataset
