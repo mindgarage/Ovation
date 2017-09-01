@@ -1,8 +1,8 @@
 import os
 from nose.tools import *
 
-import utils
-from utils.gersen import Gersen
+import datasets
+from datasets.gersen import Gersen
 
 
 class TestGersenBatches(object):
@@ -18,7 +18,7 @@ class TestGersenBatches(object):
         assert_equal(self.g.dataset_name, 'GerSEN: Dataset with sentiment-annotated sentences')
         assert_equal(self.g.dataset_description, 'The dataset consists of sentiment ' \
                                             'annotated sentences.')
-        assert_equal(self.g.dataset_path, os.path.join(utils.data_root_directory, 'gersen'))
+        assert_equal(self.g.dataset_path, os.path.join(datasets.data_root_directory, 'gersen'))
 
     def test_next_batch_one_hot_no_padding(self):
         # batch of 64, one hot, no padding, no sequence lengths

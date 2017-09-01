@@ -1,4 +1,4 @@
-from utils.sts import STS
+from datasets.sts import STS
 
 
 class MSPD(STS):

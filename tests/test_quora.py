@@ -1,4 +1,4 @@
-from utils import Quora
+from datasets import Quora
 from tests.test_sts_all import TestSTS
 
 class TestQuora(TestSTS):
