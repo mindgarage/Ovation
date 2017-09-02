@@ -7,6 +7,8 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import pyqt_fit.nonparam_regression as smooth
+from scipy.stats import pearsonr
+from sklearn.metrics import mean_squared_error
 
 from datasets import STS
 from datasets import id2seq
@@ -180,6 +182,7 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
         dev_itr += 1
 
         if mode == 'test' and dataset.epochs_completed == 1: break
+        if mode == 'train' and dataset.epochs_completed == 1: break
 
     result_set = (all_dev_x1, all_dev_x2, all_dev_sims, all_dev_gt)
     avg_loss = avg_val_loss / dev_itr
@@ -245,8 +248,8 @@ def results(dataset, rescale=None):
             avg_test_loss, avg_test_pco, avg_train_loss, avg_train_pco
         ))
 
-        _, _, train_sims, train_gt = zip(*train_result_set)
-        _, _, test_sims, test_gt = zip(*test_result_set)
+        _, _, train_sims, train_gt = train_result_set
+        _, _, test_sims, test_gt = test_result_set
         grid = np.r_[0:1:1000j]
 
         if rescale is not None:
@@ -255,25 +258,31 @@ def results(dataset, rescale=None):
             test_gt = datasets.rescale(test_gt, new_range=rescale,
                                         original_range=[0.0, 1.0])
             grid = np.r_[rescale[0]:rescale[1]:1000j]
+
+        figure_path = os.path.join(siamese_model.exp_dir, 'results_regression_sim.jpg')
         plt.title('Regression Plot for Test Set Similarities')
         plt.ylabel('Ground Truth Similarities')
         plt.xlabel('Predicted  Similarities')
         non_param_reg = non_parametric_regression(train_sims, train_gt,
                                   method=npr_methods.LocalPolynomialKernel())
         loc_lin_reg = non_parametric_regression(non_param_reg(train_sims),
-                     train_gt, npr_methods.npr_methods.LocalLinearKernel1D())
+                     train_gt, npr_methods.LocalLinearKernel1D())
+        reg_test_sim = loc_lin_reg(test_sims)
+        reg_pco = pearsonr(reg_test_sim, test_gt)
+        reg_mse = mean_squared_error(test_gt, reg_test_sim)
+        print("Post Regression Test Results:\nPCO: {}\nMSE: {}".format(reg_pco, reg_mse))
 
-        plt.plot(loc_lin_reg(test_sims), test_gt, alpha=0.5,
-                label='Similarities',
+        plt.plot(reg_test_sim, test_gt, alpha=0.5, label='Similarities',
                          markersize=2.5)
         plt.plot(grid, non_param_reg(grid), label="Local Polynomial Smoothing",
                  linewidth=2)
         plt.plot(grid, loc_lin_reg(grid), label="Local Linear Smoothing",
                  linewidth=2)
-        plt.show()
+        plt.savefig(figure_path)
+        print("saved similarity plot at {}".format(figure_path))
 
 
-def non_parametric_regression(xs, ys, method=npr_methods.LocalPolynomialKernel()):
+def non_parametric_regression(xs, ys, method):
     reg = smooth.NonParamRegression(xs, ys,
                                    method=method)
     reg.fit()
