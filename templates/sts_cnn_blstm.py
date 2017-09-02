@@ -263,8 +263,12 @@ def results(dataset, rescale=None):
         plt.title('Regression Plot for Test Set Similarities')
         plt.ylabel('Ground Truth Similarities')
         plt.xlabel('Predicted  Similarities')
+        
+        print("Performing Non Parametric Regression")
         non_param_reg = non_parametric_regression(train_sims, train_gt,
                                   method=npr_methods.LocalPolynomialKernel())
+
+        print("Performing Local Linear Regression")
         loc_lin_reg = non_parametric_regression(non_param_reg(train_sims),
                      train_gt, npr_methods.LocalLinearKernel1D())
         reg_test_sim = loc_lin_reg(test_sims)
@@ -283,8 +287,7 @@ def results(dataset, rescale=None):
 
 
 def non_parametric_regression(xs, ys, method):
-    reg = smooth.NonParamRegression(xs, ys,
-                                   method=method)
+    reg = smooth.NonParamRegression(xs, ys, method=method)
     reg.fit()
     return reg
 
