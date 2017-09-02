@@ -50,14 +50,17 @@ def lstm_block(input, hidden_units=128, dropout=0.5, reuse=False,
                 output = tflearn.lstm(prev_output, hidden_units, dropout=dropout,
                                 dynamic=dynamic, reuse=reuse,
                                 scope='lstm_{}'.format(n_layer), return_seq=True)
+                output = tf.stack(output, axis=0)
+                output = tf.transpose(output, perm=[1, 0, 2])
                 prev_output = output
+                continue
             output = tflearn.lstm(prev_output, hidden_units, dropout=dropout,
                                   dynamic=dynamic, reuse=reuse,
                                   scope='lstm_{}'.format(n_layer),
                                   return_seq=return_seq)
         else:
-            if n_layer < layers - 2:
-                output = bidirectional_rnn(output,
+            if n_layer < layers - 1:
+                output = bidirectional_rnn(prev_output,
                                            BasicLSTMCell(hidden_units,
                                                          reuse=reuse),
                                            BasicLSTMCell(hidden_units,
@@ -65,7 +68,11 @@ def lstm_block(input, hidden_units=128, dropout=0.5, reuse=False,
                                            dynamic=dynamic,
                                            scope='blstm_{}'.format(n_layer),
                                            return_seq=True)
-            output = bidirectional_rnn(output,
+                output = tf.stack(output, axis=0)
+                output = tf.transpose(output, perm=[1, 0, 2])
+                prev_output = output
+                continue
+            output = bidirectional_rnn(prev_output,
                                        BasicLSTMCell(hidden_units,
                                                      reuse=reuse),
                                        BasicLSTMCell(hidden_units,
@@ -78,15 +85,23 @@ def lstm_block(input, hidden_units=128, dropout=0.5, reuse=False,
 
 def embedding_layer(metadata_path=None, embedding_weights=None,
                     trainable=True, vocab_size=None, embedding_shape=300):
-    # Setting PAD to Zeros for tflearn dynamic RNN to perform its dynamic
-    # step. Read http://tflearn.org/layers/recurrent/#lstm for more details
-
-    W = tf.get_variable("word_embeddings", [vocab_size, embedding_shape],
-                        trainable=trainable)
+    """
+    vocab_size and embedding_size are required if embedding weights are not provided
+    :param metadata_path:
+    :param embedding_weights:
+    :param trainable:
+    :param vocab_size:
+    :param embedding_shape:
+    :return:
+    """
+    W = None
     if embedding_weights is not None:
         w2v_init = tf.constant(embedding_weights, dtype=tf.float32) if \
             embedding_weights is not None else None
         W = tf.Variable(w2v_init, trainable=trainable, name="W_embedding")
+    else:
+        W = tf.get_variable("word_embeddings", [vocab_size, embedding_shape],
+                        trainable=trainable)
 
     config = projector.ProjectorConfig()
     embedding = config.embeddings.add()

@@ -1,8 +1,7 @@
 import os
-import math
-import tflearn
 import datetime
 import datasets
+import tflearn
 
 import numpy as np
 import tensorflow as tf
@@ -17,7 +16,7 @@ from models import SiameseCNNLSTM
 # Model Parameters
 tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character "
                                             "embedding (default: 300)")
-tf.flags.DEFINE_integer("train_embeddings", True, "Dimensionality of character "
+tf.flags.DEFINE_boolean("train_embeddings", True, "Dimensionality of character "
                                             "embedding (default: 300)")
 tf.flags.DEFINE_float("dropout", 0.5, "Dropout keep probability ("
                                               "default: 1.0)")
@@ -27,9 +26,9 @@ tf.flags.DEFINE_integer("hidden_units", 128, "Number of hidden units of the "
                                              "RNN Cell")
 tf.flags.DEFINE_integer("n_filters", 500, "Number of filters ")
 tf.flags.DEFINE_integer("rnn_layers", 2, "Number of layers in the RNN")
-tf.flags.DEFINE_integer("optimizer", 'adam', "Number of layers in the RNN")
+tf.flags.DEFINE_string("optimizer", 'adam', "Number of layers in the RNN")
 tf.flags.DEFINE_integer("learning_rate", 0.0001, "Learning Rate")
-tf.flags.DEFINE_integer("bidirectional", True, "Flag to have Bidirectional "
+tf.flags.DEFINE_boolean("bidirectional", True, "Flag to have Bidirectional "
                                                "LSTMs")
 
 # Training parameters
@@ -50,7 +49,7 @@ tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft"
 tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops"
                                                        " on devices")
 tf.flags.DEFINE_boolean("verbose", True, "Log Verbosity Flag")
-tf.flags.DEFINE_boolean("gpu_fraction", 0.5, "Fraction of GPU to use")
+tf.flags.DEFINE_float("gpu_fraction", 0.5, "Fraction of GPU to use")
 
 tf.flags.DEFINE_integer("sequence_length", 30, "maximum length of a sequence")
 tf.flags.DEFINE_string("dataset", "sts", "name of the dataset")
@@ -73,7 +72,7 @@ def initialize_tf_graph(dataset):
     print("Session Started")
 
     with sess.as_default():
-        siamese_model = SiameseCNNLSTM(FLAGS)
+        siamese_model = SiameseCNNLSTM(FLAGS.__flags)
         siamese_model.show_train_params()
         siamese_model.build_model(metadata_path=dataset.metadata_path,
                                   embedding_weights=dataset.w2v)
@@ -90,28 +89,30 @@ def train(dataset):
     print("Configuring Tensorflow Graph")
     with tf.Graph().as_default():
 
-        sess, siamese_model = initialize_tf_graph()
+        sess, siamese_model = initialize_tf_graph(dataset)
 
         print('Opening the datasets')
         dataset.train.open()
         dataset.validation.open()
         dataset.test.open()
 
-        min_validation_loss = math.inf
+        min_validation_loss = float("inf")
         avg_val_loss = 0.0
         prev_epoch = 0
         tflearn.is_training(True, session=sess)
         while dataset.train.epochs_completed <= FLAGS.num_epochs:
-            train_batch = dataset.train.next_batch(batch_size=FLAGS.batch_size)
-            pco, mse, loss, step =  siamese_model.train_step(sess,
-                                                            train_batch.s1,
-                 train_batch.s2, train_batch.sim, dataset.train.epochs_completed)
+            train_batch = dataset.train.next_batch(batch_size=FLAGS.batch_size,
+                                               pad=siamese_model.args["sequence_length"])
+            pco, mse, loss, step =  siamese_model.train_step(sess, train_batch.s1,
+                                                         train_batch.s2,
+                                                         train_batch.sim,
+                                                         dataset.train.epochs_completed)
 
 
             if step % FLAGS.evaluate_every == 0:
                 avg_val_loss, avg_val_pco, _ = evaluate(sess=sess,
                                  dataset=dataset.validation, model=siamese_model,
-                                 max_dev_itr=FLAGS.max_dev_itr, mode='val')
+                                 max_dev_itr=FLAGS.max_dev_itr, mode='val', step=step)
 
             if step % FLAGS.checkpoint_every == 0:
                 min_validation_loss = maybe_save_checkpoint(sess,
@@ -121,7 +122,9 @@ def train(dataset):
                 prev_epoch = dataset.train.epochs_completed
                 avg_test_loss, avg_test_pco, _ = evaluate(sess=sess,
                                          dataset=dataset.test, model=siamese_model,
-                                         max_dev_itr=0, mode='test')
+                                         max_dev_itr=0, mode='test', step=step)
+                min_validation_loss = maybe_save_checkpoint(sess,
+                                min_validation_loss, avg_val_loss, step, siamese_model)
 
         dataset.train.close()
         dataset.validation.close()
@@ -163,29 +166,29 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
     sess.run(tf.local_variables_initializer())
     all_dev_x1, all_dev_x2, all_dev_sims, all_dev_gt = [], [], [], []
     dev_itr = 0
-    for val_batch in dataset.next_batch(FLAGS.batch_size):
-        if dev_itr >= max_dev_itr and max_dev_itr != 0: break
-
+    while (dev_itr < max_dev_itr and max_dev_itr != 0) or mode == 'test' or mode == 'train':
+        val_batch = dataset.next_batch(FLAGS.batch_size,
+                                       pad=model.args["sequence_length"])
         val_loss, val_pco, val_mse, val_sim = \
             model.evaluate_step(sess, val_batch.s1, val_batch.s2, val_batch.sim)
         avg_val_loss += val_mse
         avg_val_pco += val_pco[0]
-        all_dev_x1 += id2seq(val_batch.s1)
-        all_dev_x2 += id2seq(val_batch.s2)
+        all_dev_x1 += id2seq(val_batch.s1, dataset.vocab_i2w)
+        all_dev_x2 += id2seq(val_batch.s2, dataset.vocab_i2w)
         all_dev_sims += val_sim.tolist()
         all_dev_gt += val_batch.sim
         dev_itr += 1
 
         if mode == 'test' and dataset.epochs_completed == 1: break
 
-    result_set = zip(all_dev_x1, all_dev_x2, all_dev_sims, all_dev_gt)
-    avg_loss = avg_val_loss / FLAGS.max_dev_itr
-    avg_pco = avg_val_pco / FLAGS.max_dev_itr
+    result_set = (all_dev_x1, all_dev_x2, all_dev_sims, all_dev_gt)
+    avg_loss = avg_val_loss / dev_itr
+    avg_pco = avg_val_pco / dev_itr
     if verbose:
         print("{}:\t Loss: {}\tPco{}".format(mode, avg_loss, avg_pco))
 
     with open(samples_path, 'w') as sf, open(history_path, 'a') as hf:
-        for x1, x2, sim, gt in result_set:
+        for x1, x2, sim, gt in zip(all_dev_x1, all_dev_x2, all_dev_sims, all_dev_gt):
             sf.write('{}\t{}\t{}\t{}\n'.format(x1, x2, sim, gt))
         hf.write('STEP:{}\tTIME:{}\tPCO:{}\tMSE\t{}\n'.format(
             step, datetime.datetime.now().isoformat(),
@@ -197,41 +200,43 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
 def test(dataset, rescale=None):
     print("Configuring Tensorflow Graph")
     with tf.Graph().as_default():
-        sess, siamese_model = initialize_tf_graph()
+        sess, siamese_model = initialize_tf_graph(dataset)
         dataset.test.open()
         avg_test_loss, avg_test_pco, test_result_set = evaluate(sess=sess,
                                                         dataset=dataset.test,
                                                         model=siamese_model,
                                                         max_dev_itr=0,
-                                                        mode='test')
+                                                        mode='test', step=-1)
         print('Average Pearson Correlation: {}\nAverage MSE: {}'.format(
                                                 avg_test_pco, avg_test_loss))
         dataset.test.close()
-        _, _, sims, gt = zip(*test_result_set)
+        _, _, sims, gt = test_result_set
         if rescale is not None:
             gt = datasets.rescale(gt, new_range=rescale,
                                   original_range=[0.0, 1.0])
 
+        figure_path = os.path.join(siamese_model.exp_dir, 'test_no_regression_sim.jpg')
         plt.ylabel('Ground Truth Similarities')
         plt.xlabel('Predicted  Similarities')
-        plt.plot(sims, gt, alpha=0.5, label='Similarities', markersize=2.5)
-        plt.show()
+        plt.scatter(sims, gt, label="Similarity", s=0.2)
+        plt.savefig(figure_path)
+        print("saved similarity plot at {}".format(figure_path))
 
 
 def results(dataset, rescale=None):
     print("Configuring Tensorflow Graph")
     with tf.Graph().as_default():
-        sess, siamese_model = initialize_tf_graph()
+        sess, siamese_model = initialize_tf_graph(dataset)
         dataset.test.open()
         dataset.train.open()
         avg_test_loss, avg_test_pco, test_result_set = evaluate(sess=sess,
                                                dataset=dataset.test,
-                                               model=siamese_model,
+                                               model=siamese_model, step=-1,
                                                max_dev_itr=0, mode='test')
         avg_train_loss, avg_train_pco, train_result_set = evaluate(sess=sess,
                                                     dataset=dataset.train,
                                                     model=siamese_model,
-                                                    max_dev_itr=0,
+                                                    max_dev_itr=0, step=-1,
                                                     mode='train')
         dataset.test.close()
         dataset.train.close()
@@ -277,6 +282,7 @@ def non_parametric_regression(xs, ys, method=npr_methods.LocalPolynomialKernel()
 
 if __name__ == '__main__':
     sts = STS()
+    sts.create_vocabulary(name="dash_sts")
     if FLAGS.mode == 'train':
         train(sts)
     elif FLAGS.mode == 'test':

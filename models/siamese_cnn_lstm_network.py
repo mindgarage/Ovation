@@ -7,9 +7,7 @@ import tensorflow as tf
 from utils import ops
 from utils import distances
 from utils import losses
-from utils import metrics
 from scipy.stats import pearsonr
-from tflearn.layers.core import dropout
 from sklearn.metrics import mean_squared_error
 from tensorflow.contrib.tensorboard.plugins import projector
 
@@ -21,27 +19,27 @@ class SiameseCNNLSTM(object):
     layer.
     """
 
-    def __init__(self, args):
-        self.args = args
-        self.load_train_options()
+    def __init__(self, train_options):
+        self.args = train_options
         self.create_placeholders()
         self.create_experiment_dirs()
+        self.load_train_options()
         self.save_train_options()
 
-    def create_placeholders(self, sequence_length):
+    def create_placeholders(self):
         self.input_s1 = tf.placeholder(tf.int32, [None,
-                                                  self.args.sequence_length],
+                                                  self.args.get("sequence_length")],
                                        name="input_s1")
         self.input_s2 = tf.placeholder(tf.int32, [None,
-                                                  self.args.sequence_length],
+                                                  self.args.get("sequence_length")],
                                        name="input_s2")
         self.input_sim = tf.placeholder(tf.float32, [None], name="input_sim")
         self.global_step = tf.Variable(0, name="global_step", trainable=False)
-        self.dropout_keep_prob = self.args.dropout
+        self.dropout_keep_prob = self.args.get("dropout")
 
     def create_optimizer(self):
-        self.optimizer = ops.get_optimizer(self.args.optimizer) \
-                                                (self.args.learning_rate)
+        self.optimizer = ops.get_optimizer(self.args["optimizer"]) \
+                                                (self.args["learning_rate"])
 
     def compute_gradients(self):
         self.grads_and_vars = self.optimizer.compute_gradients(self.loss)
@@ -60,32 +58,32 @@ class SiameseCNNLSTM(object):
 
         with tf.name_scope("SIAMESE_CNN_LSTM"):
             self.s1_cnn_out = ops.multi_filter_conv_block(self.embedded_s1,
-                                        self.args.n_filters,
-                                        dropout_keep_prob=self.args.dropout)
+                                        self.args["n_filters"],
+                                        dropout_keep_prob=self.args["dropout"])
             self.s1_lstm_out = ops.lstm_block(self.s1_cnn_out,
-                                       self.args.hidden_unit,
-                                       dropout=self.args.dropout,
-                                       layers=self.args.rnn_layers,
-                                       dynamic=True,
-                                       bidirectional=self.args.bidirectional)
+                                       self.args["hidden_units"],
+                                       dropout=self.args["dropout"],
+                                       layers=self.args["rnn_layers"],
+                                       dynamic=False,
+                                       bidirectional=self.args["bidirectional"])
 
             self.s2_cnn_out = ops.multi_filter_conv_block(self.embedded_s2,
-                                          self.args.n_filters, reuse=True,
-                                          dropout_keep_prob=self.args.dropout)
+                                          self.args["n_filters"], reuse=True,
+                                          dropout_keep_prob=self.args["dropout"])
             self.s2_lstm_out = ops.lstm_block(self.s2_cnn_out,
-                                       self.args.hidden_unit,
-                                       dropout=self.args.dropout,
-                                       layers=self.args.rnn_layers,
-                                       dynamic=True, reuse=True,
-                                       bidirectional=self.args.bidirectional)
+                                       self.args["hidden_units"],
+                                       dropout=self.args["dropout"],
+                                       layers=self.args["rnn_layers"],
+                                       dynamic=False, reuse=True,
+                                       bidirectional=self.args["bidirectional"])
             self.distance = distances.exponential(self.s1_lstm_out,
                                                   self.s2_lstm_out)
 
         with tf.name_scope("loss"):
-            self.loss = losses.mean_squared_error(self.input_y, self.distance)
+            self.loss = losses.mean_squared_error(self.input_sim, self.distance)
 
-            if self.args.l2_reg_beta > 0.0:
-                self.regularizer = ops.get_regularizer(self.args.l2_reg_beta)
+            if self.args["l2_reg_beta"] > 0.0:
+                self.regularizer = ops.get_regularizer(self.args["l2_reg_beta"])
                 self.loss = tf.reduce_mean(self.loss + self.regularizer)
 
         #### Evaluation Measures.
@@ -97,8 +95,8 @@ class SiameseCNNLSTM(object):
                     self.input_sim, self.distance,  name="mse")
 
     def create_experiment_dirs(self):
-        self.exp_dir = os.path.join(self.args.data_dir,
-                               'experiments', self.args.experiment_name)
+        self.exp_dir = os.path.join(self.args["data_dir"],
+                               'experiments', self.args["experiment_name"])
         if not os.path.exists(self.exp_dir):
             os.makedirs(self.exp_dir)
         print("All experiment related files will be "
@@ -159,7 +157,7 @@ class SiameseCNNLSTM(object):
 
     def initialize_saver(self):
         self.saver = tf.train.Saver(tf.global_variables(),
-                                    max_to_keep=self.args.max_checkpoints)
+                                    max_to_keep=self.args["max_checkpoints"])
 
     def initialize_variables(self, sess):
         sess.run(tf.global_variables_initializer())
@@ -173,12 +171,12 @@ class SiameseCNNLSTM(object):
             f.write(graphpb_txt)
 
     def save_train_options(self):
-        pickle.dump(self.args, open(self.train_options_path, 'w'))
+        pickle.dump(self.args, open(self.train_options_path, 'wb'))
         print('Saved Training options')
 
     def load_train_options(self):
         if os.path.exists(self.train_options_path):
-            self.args = pickle.load(open(self.train_options_path, 'b'))
+            self.args = pickle.load(open(self.train_options_path, 'rb'))
             print('Loaded Training options')
         else:
             print('Could not find training options so using currently given '
@@ -186,7 +184,7 @@ class SiameseCNNLSTM(object):
 
     def show_train_params(self):
         print("\nParameters:")
-        for attr, value in sorted(self.args.__flags.items()):
+        for attr, value in sorted(self.args.items()):
             print("{}={}".format(attr.upper(), value))
 
     def load_saved_model(self, sess):
@@ -271,7 +269,7 @@ class SiameseCNNLSTM(object):
         pco = pearsonr(sim, sim_batch)
         mse = mean_squared_error(sim_batch, sim)
         if verbose:
-            print("DEV{}:step{}\tloss{:g}\t pco:{}\tmse:{}".format(time_str,
+            print("EVAL{}:step{}\tloss{:g}\t pco:{}\tmse:{}".format(time_str,
                                                         step, loss, pco, mse))
         return loss, pco, mse, sim
 
