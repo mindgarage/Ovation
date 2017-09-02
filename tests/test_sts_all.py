@@ -1,5 +1,5 @@
 import os
-from utils import STS
+from datasets import STS
 from nose.tools import assert_equal
 from nose.tools import assert_not_equal
 from nose.tools import assert_is_instance
@@ -11,10 +11,12 @@ def setup_dataset(cl):
     ret.test.open()
     return ret
 
+
 def teardown_dataset(ds):
     ds.train.close()
     ds.validation.close()
     ds.test.close()
+
 
 class TestSTS(object):
     @classmethod
