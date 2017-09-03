@@ -17,8 +17,8 @@ train_validate_split = 0.9
 test_split_large = 0.3
 test_split_small = 0.2
 data_root_directory = os.path.join('/', 'scratch', 'OSA-alpha', 'data', 'datasets')
-
 spacy_nlp = None
+
 
 def get_spacy():
     global spacy_nlp
@@ -28,9 +28,11 @@ def get_spacy():
 
 spacy_tokenizer = get_spacy().tokenizer
 
+
 def default_tokenize(sentence):
     return [i for i in re.split(r"([-.\"',:? !\$#@~()*&\^%;\[\]/\\\+<>\n=])",
                                 sentence) if i!='' and i!=' ' and i!='\n']
+
 
 def padseq(data, pad=0, raw=False):
     if pad == 0:
@@ -64,6 +66,7 @@ def id2seq(data, i2w):
         buff.append(sent)
     return buff
 
+
 def seq2id(data, w2i, seq_begin=False, seq_end=False):
     buff = []
     for seq in data:
@@ -81,6 +84,7 @@ def seq2id(data, w2i, seq_begin=False, seq_end=False):
         buff.append(id_seq)
     return buff
 
+
 def append_seq_markers(data, seq_begin=True, seq_end=True):
     data_ = []
     for d in data:
@@ -91,17 +95,49 @@ def append_seq_markers(data, seq_begin=True, seq_end=True):
         data_.append(d)
     return data_
 
+
+def mark_entities(line):
+    sentences = []
+    doc = spacy_tokenizer(line)
+    for sent in doc.sents:
+        sentence_tokens = []
+        for token in sent:
+            if token.ent_type_ == '':
+                sentence_tokens.append(token.text.lower())
+            else:
+                sentence_tokens.append(token.text)
+        sentences.append(sentence_tokens)
+    return sentences
+
+
+def sentence_tokenizer(line):
+    sentences = []
+    doc = spacy_tokenizer(line)
+    for sent in doc.sents:
+        sentence_tokens = []
+        for token in sent:
+            if token.ent_type_ == '':
+                sentence_tokens.append(token.text.lower())
+            else:
+                sentence_tokens.append(token.text)
+        sentences.append(sentence_tokens)
+    return sentences
+
 def tokenize(line, tokenizer='spacy'):
     tokens = []
     if tokenizer == 'spacy':
         doc = spacy_tokenizer(line)
         for token in doc:
-            tokens.append(token.text)
+            if token.ent_type_ == '':
+                tokens.append(token.text.lower())
+            else:
+                tokens.append(token.text)
     elif tokenizer == 'nltk':
         tokens = nltk_tokenizer(line)
     else:
         tokens = default_tokenize(line)
     return tokens
+
 
 def vocabulary_builder(data_paths, min_frequency=5, tokenizer='spacy',
                    downcase=True, max_vocab_size=None, line_processor=None):
@@ -136,6 +172,7 @@ def vocabulary_builder(data_paths, min_frequency=5, tokenizer='spacy',
         vocab = vocab[:max_vocab_size]
 
     return vocab
+
 
 def new_vocabulary(files, dataset_path, min_frequency, tokenizer,
                     downcase, max_vocab_size, name,
@@ -214,17 +251,21 @@ def preload_w2v(w2i, initialize='random'):
 
     return w2v
 
+
 def load_w2v(path):
     return np.load(path)
 
+
 def save_w2v(path, w2v):
     return np.save(path, w2v)
+
 
 def validate_rescale(rescale):
     if rescale[0] > rescale[1]:
         raise ValueError('Incompatible rescale values. rescale[0] should '
                          'be less than rescale[1]. An example of a valid '
                          'rescale is (4, 8).')
+
 
 def rescale(values, new_range, original_range):
     if new_range == original_range:
