@@ -1,4 +1,4 @@
-from utils import Sick
+from datasets import Sick
 from tests.test_sts_all import TestSTS
 
 class TestSick(TestSTS):

@@ -1,4 +1,4 @@
-from utils import MSPD
+from datasets import MSPD
 from tests.test_sts_all import TestSTS
 
 class TestMSPD(TestSTS):

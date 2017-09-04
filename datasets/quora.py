@@ -1,7 +1,7 @@
-from utils.sts import STS
+from datasets.sts import STS
 
 
-class SemEval(STS):
+class Quora(STS):
     def __init__(self, train_validation_split=None, test_split=None,
-                 use_defaults=True, name='semEval'):
+                 use_defaults=True, name='quora'):
         super().__init__(subset=name)

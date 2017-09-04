@@ -1,4 +1,4 @@
-from utils import PPDB
+from datasets import PPDB
 from tests.test_sts_all import TestSTS
 
 class TestPPDB(TestSTS):
