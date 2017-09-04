@@ -16,7 +16,8 @@ stratified = True
 train_validate_split = 0.9
 test_split_large = 0.3
 test_split_small = 0.2
-data_root_directory = os.path.join('/', 'scratch', 'OSA-alpha', 'data', 'datasets')
+#data_root_directory = os.path.join('/', 'scratch', 'OSA-alpha', 'data', 'datasets')
+data_root_directory = os.path.join('..', 'data', 'datasets')
 spacy_nlp = None
 
 
@@ -300,6 +301,12 @@ def rescale(values, new_range, original_range):
                        new_range[0]
         rescaled_values.append(new_value)
     return rescaled_values
+
+def paths_exist(paths_list):
+    for i in paths_list:
+        if not os.path.exists(i):
+            return False
+    return True
 
 
 #from .microsoft_paraphrase_dataset import MicrosoftParaphraseDataset

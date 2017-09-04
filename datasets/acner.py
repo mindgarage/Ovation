@@ -2,7 +2,7 @@ import os
 import csv
 import random
 import collections
-import utils
+import datasets
 
 from tflearn.data_utils import to_categorical
 
@@ -18,7 +18,7 @@ class Acner():
     def construct(self):
         self.dataset_name = 'ACNER: Annotated Corpus for Named Entity Recognition'
         self.dataset_description = 'A ~1M word corpus with NER annotations.'
-        self.dataset_path = os.path.join(utils.data_root_directory, 'acner')
+        self.dataset_path = os.path.join(datasets.data_root_directory, 'acner')
 
         self.train_path = os.path.join(self.dataset_path, 'train.txt')
         self.validate_path = os.path.join(self.dataset_path, 'validate.txt')
@@ -47,28 +47,28 @@ class Acner():
                 (os.path.exists(self.train_path) and
                 os.path.exists(self.validate_path) and
                 os.path.exists(self.test_path) and
-                utils.paths_exist(self.vocab_paths) and
-                utils.paths_exist(self.metadata_paths) and
-                utils.paths_exist(self.w2v_paths)):
+                datasets.paths_exist(self.vocab_paths) and
+                datasets.paths_exist(self.metadata_paths) and
+                datasets.paths_exist(self.w2v_paths)):
             self.initialize_defaults(shuffle)
         else:
             if test_split is None:
-                test_split = utils.test_split_small
+                test_split = datasets.test_split_small
             if train_validate_split is None:
-                train_validate_split = utils.train_validate_split
+                train_validate_split = datasets.train_validate_split
             self.load_anew(train_validate_split, test_split,
                            shuffle=shuffle)
 
     def initialize_defaults(self, shuffle):
         # For now, we are happy that this works =)
-        self.load_anew(train_validate_split=utils.train_validate_split,
-                       test_split=utils.test_split_small, shuffle=shuffle)
+        self.load_anew(train_validate_split=datasets.train_validate_split,
+                       test_split=datasets.test_split_small, shuffle=shuffle)
         #train_data = self.load_data(self.train_path)
         #validate_data = self.load_data(self.validate_path)
         #test_data = self.load_data(self.test_path)
 
-        #self.w2i, self.i2w = utils.load_vocabulary(self.vocab_path)
-        #self.w2v = utils.load_w2v(self.w2v_path)
+        #self.w2i, self.i2w = datasets.load_vocabulary(self.vocab_path)
+        #self.w2v = datasets.load_w2v(self.w2v_path)
 
         #self.train = DataSet(train_data, (self.w2i, self.i2w), shuffle)
         #self.validate = DataSet(validate_data, (self.w2i, self.i2w), shuffle)
@@ -97,32 +97,6 @@ class Acner():
         self.initialize_vocabulary()
         self.initialize_datasets(train_data, validate_data, test_data, shuffle)
 
-
-    def construct(self):
-        self.dataset_name = 'ACNER: Annotated Corpus for Named Entity Recognition'
-        self.dataset_description = 'A ~1M word corpus with NER annotations.'
-        self.dataset_path = os.path.join(utils.data_root_directory, 'acner')
-
-        self.train_path = os.path.join(self.dataset_path, 'train.txt')
-        self.validate_path = os.path.join(self.dataset_path, 'validate.txt')
-        self.test_path = os.path.join(self.dataset_path, 'test.txt')
-
-        self.vocab_paths = [os.path.join(self.dataset_path, 'vocab.txt'),
-                            os.path.join(self.dataset_path, 'pos_vocab.txt'),
-                            os.path.join(self.dataset_path, 'ner_vocab.txt')]
-
-        self.metadata_paths = [os.path.join(self.dataset_path, 'metadata.txt'),
-                               os.path.join(self.dataset_path, 'pos_metadata.txt'),
-                               os.path.join(self.dataset_path, 'ner_metadata.txt')]
-
-        self.w2v_paths = [os.path.join(self.dataset_path, 'w2v.npy'),
-                          os.path.join(self.dataset_path, 'pos_w2v.npy'),
-                          os.path.join(self.dataset_path, 'ner_w2v.npy')]
-
-        self.w2i = [None, None, None]
-        self.i2w = [None, None, None]
-        self.w2v = [None, None, None]
-
     def load_all_data(self, path):
         file_name = 'acner.csv'
         path_plus_file_name = os.path.join(path, file_name)
@@ -140,16 +114,16 @@ class Acner():
         names = ['texts', 'pos', 'ner']
         for i in range(len(self.vocab_paths)):
             self.vocab_paths[i], self.w2v_paths[i], self.metadata_paths[i] = \
-                utils.new_vocabulary(
+                datasets.new_vocabulary(
                     files=[self.train_path], dataset_path=self.dataset_path,
                     min_frequency=5, tokenizer='spacy',
                     downcase=True, max_vocab_size=None,
                     name=names[i],
                     line_processor=lambda line: line.split('\t')[i])
 
-            self.w2i[i], self.i2w[i] = utils.load_vocabulary(self.vocab_paths[i])
-            self.w2v[i] = utils.preload_w2v(self.w2i[i])
-            utils.save_w2v(self.w2v_paths[i], self.w2v[i])
+            self.w2i[i], self.i2w[i] = datasets.load_vocabulary(self.vocab_paths[i])
+            self.w2v[i] = datasets.preload_w2v(self.w2i[i])
+            datasets.save_w2v(self.w2v_paths[i], self.w2v[i])
 
     def initialize_datasets(self, train_data, validate_data, test_data, shuffle):
         self.train = DataSet(train_data, self.w2i, self.i2w, shuffle)
@@ -210,10 +184,10 @@ class Acner():
         # It doesn't seem to make sense to want to create a new vocabulary for
         # the other two types of data (NER data or POS tags). So I'll only allow
         # for new vocabularies on the text
-        self.w2i[0], self.i2w[0] = utils.load_vocabulary(self.vocab_paths[0])
+        self.w2i[0], self.i2w[0] = datasets.load_vocabulary(self.vocab_paths[0])
         if load_w2v:
-            self.w2v[0] = utils.preload_w2v(self.w2i[0])
-            utils.save_w2v(self.w2v_paths[0], self.w2v[0])
+            self.w2v[0] = datasets.preload_w2v(self.w2i[0])
+            datasets.save_w2v(self.w2v_paths[0], self.w2v[0])
         self.train.set_vocab(self.w2i, self.i2w, 0)
         self.validate.set_vocab(self.w2i, self.i2w, 0)
         self.test.set_vocab(self.w2i, self.i2w, 0)
@@ -227,7 +201,7 @@ class Acner():
         # for new vocabularies on the text
 
         self.vocab_paths[0], self.w2v_paths[0], self.metadata_paths[0] = \
-            utils.new_vocabulary(
+            datasets.new_vocabulary(
                 files=all_files, dataset_path=self.dataset_path,
                 min_frequency=min_frequency,
                 tokenizer=tokenizer, downcase=downcase,
@@ -290,9 +264,9 @@ class DataSet():
         ner = self.generate_sequences(ner, tokenizer)
 
         batch = self.Batch(
-            sentences=utils.padseq(utils.seq2id(sentences, self.vocab_w2i[0]), pad),
-            pos=utils.padseq(utils.seq2id(pos, self.vocab_w2i[1]), pad),
-            ner=utils.padseq(utils.seq2id(ner, self.vocab_w2i[2]), pad))
+            sentences=datasets.padseq(datasets.seq2id(sentences, self.vocab_w2i[0]), pad),
+            pos=datasets.padseq(datasets.seq2id(pos, self.vocab_w2i[1]), pad),
+            ner=datasets.padseq(datasets.seq2id(ner, self.vocab_w2i[2]), pad))
 
         ret = [batch]
         if (return_sequence_lengths):
@@ -304,7 +278,7 @@ class DataSet():
     def generate_sequences(self, x, tokenizer):
         new_x = []
         for instance in x:
-            tokens = utils.tokenize(instance, tokenizer)
+            tokens = datasets.tokenize(instance, tokenizer)
             new_x.append(tokens)
         return new_x
 
