@@ -11,6 +11,7 @@ from scipy.stats import pearsonr
 from sklearn.metrics import mean_squared_error
 
 from datasets import STS
+from datasets import Sick
 from datasets import id2seq
 from pyqt_fit import npr_methods
 from models import SiameseCNNLSTM
@@ -57,7 +58,7 @@ tf.flags.DEFINE_integer("sequence_length", 30, "maximum length of a sequence")
 tf.flags.DEFINE_string("dataset", "sts", "name of the dataset")
 tf.flags.DEFINE_string("data_dir", "/tmp", "path to the root of the data "
                                            "directory")
-tf.flags.DEFINE_string("experiment_name", "STS_CNN_LSTM", "Name of your model")
+tf.flags.DEFINE_string("experiment_name", "SICK_CNN_LSTM", "Name of your model")
 tf.flags.DEFINE_string("mode", "train", "'train' or 'test or phase2'")
 
 
@@ -65,7 +66,8 @@ tf.flags.DEFINE_string("mode", "train", "'train' or 'test or phase2'")
 FLAGS = tf.flags.FLAGS
 FLAGS._parse_flags()
 
-def initialize_tf_graph(dataset):
+
+def initialize_tf_graph(metadata_path, w2v):
     config = tf.ConfigProto(
         allow_soft_placement=FLAGS.allow_soft_placement,
         log_device_placement=FLAGS.log_device_placement)
@@ -76,8 +78,8 @@ def initialize_tf_graph(dataset):
     with sess.as_default():
         siamese_model = SiameseCNNLSTM(FLAGS.__flags)
         siamese_model.show_train_params()
-        siamese_model.build_model(metadata_path=dataset.metadata_path,
-                                  embedding_weights=dataset.w2v)
+        siamese_model.build_model(metadata_path=metadata_path,
+                                  embedding_weights=w2v)
         siamese_model.create_optimizer()
         print("Siamese CNN LSTM Model built")
 
@@ -87,11 +89,11 @@ def initialize_tf_graph(dataset):
     return sess, siamese_model
 
 
-def train(dataset):
+def train(dataset, metadata_path, w2v):
     print("Configuring Tensorflow Graph")
     with tf.Graph().as_default():
 
-        sess, siamese_model = initialize_tf_graph(dataset)
+        sess, siamese_model = initialize_tf_graph(metadata_path, w2v)
 
         print('Opening the datasets')
         dataset.train.open()
@@ -127,6 +129,7 @@ def train(dataset):
                 avg_test_loss, avg_test_pco, _ = evaluate(sess=sess,
                                          dataset=dataset.test, model=siamese_model,
                                          max_dev_itr=0, mode='test', step=step)
+                dataset.test._epochs_completed = 0
                 min_test_loss = maybe_save_checkpoint(sess,
                                 min_validation_loss, avg_val_loss, step, siamese_model)
 
@@ -201,10 +204,10 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
     return avg_loss, avg_pco, result_set
 
 
-def test(dataset, rescale=None):
+def test(dataset, metadata_path, w2v, rescale=None):
     print("Configuring Tensorflow Graph")
     with tf.Graph().as_default():
-        sess, siamese_model = initialize_tf_graph(dataset)
+        sess, siamese_model = initialize_tf_graph(metadata_path, w2v)
         dataset.test.open()
         avg_test_loss, avg_test_pco, test_result_set = evaluate(sess=sess,
                                                         dataset=dataset.test,
@@ -227,10 +230,10 @@ def test(dataset, rescale=None):
         print("saved similarity plot at {}".format(figure_path))
 
 
-def results(dataset, rescale=None):
+def results(dataset, metadata_path, w2v, rescale=None):
     print("Configuring Tensorflow Graph")
     with tf.Graph().as_default():
-        sess, siamese_model = initialize_tf_graph(dataset)
+        sess, siamese_model = initialize_tf_graph(metadata_path, w2v)
         dataset.test.open()
         dataset.train.open()
         avg_test_loss, avg_test_pco, test_result_set = evaluate(sess=sess,
@@ -258,33 +261,39 @@ def results(dataset, rescale=None):
                                   original_range=[0.0, 1.0])
             test_gt = datasets.rescale(test_gt, new_range=rescale,
                                         original_range=[0.0, 1.0])
-            grid = np.r_[rescale[0]:rescale[1]:1000j]
+            #grid = np.r_[rescale[0]:rescale[1]:1000j]
 
-        figure_path = os.path.join(siamese_model.exp_dir, 'results_regression_sim.jpg')
+        figure_path = os.path.join(siamese_model.exp_dir, 'results_test_sim.jpg')
+        reg_fig_path = os.path.join(siamese_model.exp_dir, 'results_line_fit.jpg')
         plt.title('Regression Plot for Test Set Similarities')
         plt.ylabel('Ground Truth Similarities')
         plt.xlabel('Predicted  Similarities')
         
         print("Performing Non Parametric Regression")
         non_param_reg = non_parametric_regression(train_sims, train_gt,
-                                  method=npr_methods.LocalPolynomialKernel())
+                                  method=npr_methods.SpatialAverage())
 
-        print("Performing Local Linear Regression")
-        loc_lin_reg = non_parametric_regression(non_param_reg(train_sims),
-                     train_gt, npr_methods.LocalLinearKernel1D())
-        reg_test_sim = loc_lin_reg(test_sims)
+        
+        reg_test_sim = non_param_reg(test_sims)
         reg_pco = pearsonr(reg_test_sim, test_gt)
         reg_mse = mean_squared_error(test_gt, reg_test_sim)
         print("Post Regression Test Results:\nPCO: {}\nMSE: {}".format(reg_pco, reg_mse))
 
-        plt.plot(reg_test_sim, test_gt, alpha=0.5, label='Similarities',
-                         markersize=2.5)
-        plt.plot(grid, non_param_reg(grid), label="Local Polynomial Smoothing",
-                 linewidth=2)
-        plt.plot(grid, loc_lin_reg(grid), label="Local Linear Smoothing",
-                 linewidth=2)
+        plt.scatter(reg_test_sim, test_gt, label='Similarities', s = 0.2)
         plt.savefig(figure_path)
+        
+        plt.clf()
+
+        plt.title('Regression Plot for Test Set Similarities')
+        plt.ylabel('Ground Truth Similarities')
+        plt.xlabel('Predicted  Similarities')
+        plt.scatter(test_sims, test_gt, label='Similarities', s=0.2)
+        plt.plot(grid, non_param_reg(grid), label="Local Linear Smoothing",
+                 linewidth=2.0, color='r')
+        plt.savefig(reg_fig_path)
+        
         print("saved similarity plot at {}".format(figure_path))
+        print("saved regression plot at {}".format(reg_fig_path))
 
 
 def non_parametric_regression(xs, ys, method):
@@ -296,9 +305,11 @@ def non_parametric_regression(xs, ys, method):
 if __name__ == '__main__':
     sts = STS()
     sts.create_vocabulary(name="dash_sts")
+    
+    sick = Sick()
     if FLAGS.mode == 'train':
-        train(sts)
+        train(sick, sts.metadata_path, sts.w2v)
     elif FLAGS.mode == 'test':
-        test(sts, rescale=[0.0, 5.0])
+        test(sick, sts.metadata_path, sts.w2v, rescale=[1.0, 5.0])
     elif FLAGS.mode == 'results':
-        results(sts, rescale=[0.0, 5.0])
+        results(sick, sts.metadata_path, sts.w2v, rescale=[1.0, 5.0])
