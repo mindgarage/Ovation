@@ -181,8 +181,8 @@ class DataSet():
 
     def set_vocab(self, w2i, i2w, which=None):
         if (which is not None):
-            self.vocab_w2i = w2i[which]
-            self.vocab_i2w = i2w[which]
+            self.vocab_w2i[which] = w2i[which]
+            self.vocab_i2w[which] = i2w[which]
         else:
             self.vocab_w2i = w2i
             self.vocab_i2w = i2w
