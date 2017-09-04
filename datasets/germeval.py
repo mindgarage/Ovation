@@ -10,12 +10,24 @@ from datasets.acner import Acner
 class Germeval(Acner):
     def __init__(self, train_validate_split=None, test_split=None,
              use_defaults=False, shuffle=True):
-        super(Germeval, self).__init__(train_validate_split, test_split,
-                                    use_defaults, shuffle)
+        # It makes less sense to try to change the sizes of the stuff in this
+        # dataset: it already comes with a Train/Dev/Test cutting
+        super(Germeval, self).__init__(None, None, None, None)
 
-    def load(self, use_defaults, train_validate_split, test_split, shuffle):
+    def load(self, train_validate_split=None, test_split=None,
+             use_defaults=None, shuffle=None):
+        # Ignore all the parameters passed to `load`. This method signature is
+        # here only to agree with the Base Class' signature.
+        # It makes less sense to try to change the sizes of the stuff in this
+        # dataset: it already comes with a Train/Dev/Test cutting
 
+        all_data = self.load_all_data(self.dataset_path)
 
+        self.initialize_vocabulary()
+        self.initialize_datasets(*all_data)
+
+    def initialize_vocabulary(self):
+        self.__initialize_vocabulary(['texts', 'ner1', 'ner2'], [5,1,1])
 
     def construct(self):
         self.dataset_name = 'GermEval 2014: Named Entity Recognition Shared Task'
@@ -44,15 +56,6 @@ class Germeval(Acner):
         self.w2i = [None, None, None]
         self.i2w = [None, None, None]
         self.w2v = [None, None, None]
-
-    def load_anew(self):
-        all_data = self.load_all_data(self.dataset_path)
-
-        random.shuffle(i)
-
-        self.dump_all_data(train_data, validate_data, test_data)
-        self.initialize_vocabulary()
-        self.initialize_datasets(train_data, validate_data, test_data, shuffle)
 
     def load_all_data(self, path):
         file_names = ['NER-de-train.tsv', 'NER-de-dev.tsv', 'NER-de-test.tsv']
@@ -100,4 +103,92 @@ class Germeval(Acner):
                     " ".join(ner_tags2),
                     curr_sentence])
         return ret
+
+
+class DataSet():
+    def __init__(self, data, w2i, i2w, shuffle=True):
+        self._epochs_completed = 0
+        self._index_in_epoch = 0
+        self.datafile = None
+        self.set_vocab(w2i, i2w)
+        self.data = data
+        self.Batch = self.initialize_batch()
+
+    def initialize_batch(self):
+        return collections.namedtuple('Batch', ['sentences', 'ner1', 'ner2'])
+
+    def next_batch(self, batch_size=64, seq_begin=False, seq_end=False,
+                   pad=0, get_raw=False, return_sequence_lengths=False,
+                   tokenizer='spacy'):
+        # format: either 'one_hot' or 'numerical'
+        # rescale: if format is 'numerical', then this should be a tuple
+        #           (min, max)
+        samples = self.data[self._index_in_epoch:self._index_in_epoch+batch_size]
+
+        if (len(samples) < batch_size):
+            self._epochs_completed += 1
+            self._index_in_epoch = 0
+
+            random.shuffle(self.data)
+
+            missing_samples = batch_size - len(samples)
+            samples.extend(self.data[0:missing_samples])
+
+        data = list(zip(*samples))
+        sentences = data[0]
+        ner1 = data[1]
+        ner2 = data[2]
+
+        if (get_raw):
+            return self.Batch(sentences=sentences,
+                              ner1=ner1,
+                              ner2=ner2)
+
+        # Generate sequences
+        sentences = self.generate_sequences(sentences, tokenizer)
+        ner1 = self.generate_sequences(ner1, tokenizer)
+        ner2 = self.generate_sequences(ner2, tokenizer)
+
+        batch = self.Batch(
+            sentences=datasets.padseq(datasets.seq2id(sentences, self.vocab_w2i[0]), pad),
+            ner1=datasets.padseq(datasets.seq2id(ner1, self.vocab_w2i[1]), pad),
+            ner2=datasets.padseq(datasets.seq2id(ner2, self.vocab_w2i[2]), pad))
+
+        ret = [batch]
+        if (return_sequence_lengths):
+            lens = [len(i) for i in sentences]
+            ret.append(lens)
+
+        return ret
+
+    def generate_sequences(self, x, tokenizer):
+        new_x = []
+        for instance in x:
+            tokens = datasets.tokenize(instance, tokenizer)
+            new_x.append(tokens)
+        return new_x
+
+    @property
+    def epochs_completed(self):
+        return self._epochs_completed
+
+    def set_vocab(self, w2i, i2w, which=None):
+        if (which is not None):
+            self.vocab_w2i = w2i[which]
+            self.vocab_i2w = i2w[which]
+        else:
+            self.vocab_w2i = w2i
+            self.vocab_i2w = i2w
+
+
+if __name__ == '__main__':
+    import timeit
+    t = timeit.timeit(Germeval, number=100)
+    print(t)
+    #a = Acner()
+    #b = a.train.next_batch()
+    #print(b)
+
+
+
 

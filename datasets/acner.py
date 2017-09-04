@@ -110,8 +110,9 @@ class Acner():
         return self.group_words_into_sentences(all_lines)
 
     def initialize_vocabulary(self):
-        names = ['texts', 'pos', 'ner']
-        min_frequencies = [5,1,1]
+        self.__initialize_vocabulary(['texts', 'pos', 'ner'], [5,1,1])
+
+    def __initialize_vocabulary(self, names, min_frequencies):
         for i in range(len(self.vocab_paths)):
             self.vocab_paths[i], self.w2v_paths[i], self.metadata_paths[i] = \
                 datasets.new_vocabulary(
@@ -223,7 +224,7 @@ class DataSet():
     def initialize_batch(self):
         return collections.namedtuple('Batch', ['sentences', 'pos', 'ner'])
 
-    # I got the number of categories with:
+    # I got the number of parts of speech with:
     # f = open('acner.csv', 'r', encoding='cp1252')
     # csv_reader = csv.reader(f, delimiter=',')
     # next(csv_reader)
@@ -270,7 +271,7 @@ class DataSet():
 
         ret = [batch]
         if (return_sequence_lengths):
-            lens = [len(i) for i in x]
+            lens = [len(i) for i in sentences]
             ret.append(lens)
 
         return ret
