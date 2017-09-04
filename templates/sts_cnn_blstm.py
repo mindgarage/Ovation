@@ -117,15 +117,17 @@ def train(dataset):
                                  max_dev_itr=FLAGS.max_dev_itr, mode='val', step=step)
 
             if step % FLAGS.checkpoint_every == 0:
-                min_validation_loss = maybe_save_checkpoint(sess,
+                validation_loss = maybe_save_checkpoint(sess,
                      min_validation_loss, avg_val_loss, step, siamese_model)
+                if validation_loss is not None:
+                    min_validation_loss = validation_loss
 
             if dataset.train.epochs_completed != prev_epoch:
                 prev_epoch = dataset.train.epochs_completed
                 avg_test_loss, avg_test_pco, _ = evaluate(sess=sess,
                                          dataset=dataset.test, model=siamese_model,
                                          max_dev_itr=0, mode='test', step=step)
-                min_validation_loss = maybe_save_checkpoint(sess,
+                min_test_loss = maybe_save_checkpoint(sess,
                                 min_validation_loss, avg_val_loss, step, siamese_model)
 
         dataset.train.close()
@@ -135,14 +137,13 @@ def train(dataset):
 
 def maybe_save_checkpoint(sess, min_validation_loss, val_loss, step, model):
     if val_loss <= min_validation_loss:
-        min_validation_loss = val_loss
         model.saver.save(sess, model.checkpoint_prefix, global_step=step)
         tf.train.write_graph(sess.graph.as_graph_def(), model.checkpoint_prefix,
                              "graph" + str(step) + ".pb", as_text=False)
         print("Saved model {} with avg_mse={} checkpoint"
               " to {}\n".format(step, min_validation_loss,
                                 model.checkpoint_prefix))
-        return min_validation_loss
+        return val_loss
 
 
 def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
