@@ -107,16 +107,16 @@ class Acner():
             next(csv_reader)
 
             all_lines = [i for i in csv_reader]
-
         return self.group_words_into_sentences(all_lines)
 
     def initialize_vocabulary(self):
         names = ['texts', 'pos', 'ner']
+        min_frequencies = [5,1,1]
         for i in range(len(self.vocab_paths)):
             self.vocab_paths[i], self.w2v_paths[i], self.metadata_paths[i] = \
                 datasets.new_vocabulary(
                     files=[self.train_path], dataset_path=self.dataset_path,
-                    min_frequency=5, tokenizer='spacy',
+                    min_frequency=min_frequencies[i], tokenizer='spacy',
                     downcase=True, max_vocab_size=None,
                     name=names[i],
                     line_processor=lambda line: line.split('\t')[i])
@@ -295,7 +295,10 @@ class DataSet():
             self.vocab_i2w = i2w
 
 if __name__ == '__main__':
-    a = Acner()
-    print(a.dataset_name)
-    b = a.train.next_batch()
-    print(b)
+    import timeit
+    t = timeit.timeit(Acner, number=100)
+    print(t)
+    #a = Acner()
+    #b = a.train.next_batch()
+    #print(b)
+
