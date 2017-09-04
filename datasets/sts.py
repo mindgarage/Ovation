@@ -1,5 +1,5 @@
 import os
-import utils
+import datasets
 import collections
 
 
@@ -19,18 +19,19 @@ class STS(object):
                'Test sentence pairs and 59058 validation sentence pairs.'
         self.test_split = 'large'
         self.dataset = subset
-        self.dataset_path = os.path.join(utils.data_root_directory,
+        self.dataset_path = os.path.join(datasets.data_root_directory,
                                          self.dataset)
         self.train_path = os.path.join(self.dataset_path, 'train', 'train.txt')
         self.validation_path = os.path.join(self.dataset_path, 'validation',
                                             'validation.txt')
         self.test_path = os.path.join(self.dataset_path, 'test', 'test.txt')
         self.vocab_path = os.path.join(self.dataset_path, 'vocab.txt')
-        self.metadata_path = os.path.join(self.dataset_path, 'metadata.txt')
+        self.metadata_path = os.path.abspath(os.path.join(self.dataset_path,
+                                               'metadata.txt'))
         self.w2v_path = os.path.join(self.dataset_path, 'w2v.npy')
 
-        self.w2i, self.i2w = utils.load_vocabulary(self.vocab_path)
-        self.w2v = utils.load_w2v(self.w2v_path)
+        self.w2i, self.i2w = datasets.load_vocabulary(self.vocab_path)
+        self.w2v = datasets.load_w2v(self.w2v_path)
 
         self.vocab_size = len(self.w2i)
         self.train = DataSet(self.train_path, (self.w2i, self.i2w))
@@ -42,17 +43,17 @@ class STS(object):
                           downcase=False, max_vocab_size=None,
                           name='new', load_w2v=True):
         self.vocab_path, self.w2v_path, self.metadata_path = \
-            utils.new_vocabulary([self.train_path], self.dataset_path,
-                min_frequency, tokenizer=tokenizer, downcase=downcase,
-                max_vocab_size=max_vocab_size, name=name)
+            datasets.new_vocabulary([self.train_path], self.dataset_path,
+                                    min_frequency, tokenizer=tokenizer, downcase=downcase,
+                                    max_vocab_size=max_vocab_size, name=name)
         self.__refresh(load_w2v)
 
     def __refresh(self, load_w2v):
-        self.w2i, self.i2w = utils.load_vocabulary(self.vocab_path)
+        self.w2i, self.i2w = datasets.load_vocabulary(self.vocab_path)
         self.vocab_size = len(self.w2i)
         if load_w2v:
-            self.w2v = utils.preload_w2v(self.w2i)
-            utils.save_w2v(self.w2v_path, self.w2v)
+            self.w2v = datasets.preload_w2v(self.w2i)
+            datasets.save_w2v(self.w2v_path, self.w2v)
         self.train.set_vocab((self.w2i, self.i2w))
         self.validation.set_vocab((self.w2i, self.i2w))
         self.test.set_vocab((self.w2i, self.i2w))
@@ -95,7 +96,7 @@ class DataSet(object):
             raise Exception('The dataset needs to be open before being used. '
                             'Please call dataset.open() before calling '
                             'dataset.next_batch()')
-        utils.validate_rescale(rescale)
+        datasets.validate_rescale(rescale)
 
         s1s, s2s, sims = [], [], []
 
@@ -117,20 +118,20 @@ class DataSet(object):
             s2s = self.remove_entities(s2s)
 
         if not raw:
-            s1s = utils.seq2id(s1s[:batch_size], self.vocab_w2i, seq_begin,
-                               seq_end)
-            s2s = utils.seq2id(s2s[:batch_size], self.vocab_w2i, seq_begin,
-                               seq_end)
+            s1s = datasets.seq2id(s1s[:batch_size], self.vocab_w2i, seq_begin,
+                                  seq_end)
+            s2s = datasets.seq2id(s2s[:batch_size], self.vocab_w2i, seq_begin,
+                                  seq_end)
         else:
-            s1s = utils.append_seq_markers(s1s[:batch_size], seq_begin, seq_end)
-            s2s = utils.append_seq_markers(s2s[:batch_size], seq_begin, seq_end)
+            s1s = datasets.append_seq_markers(s1s[:batch_size], seq_begin, seq_end)
+            s2s = datasets.append_seq_markers(s2s[:batch_size], seq_begin, seq_end)
         if pad != 0:
-            s1s = utils.padseq(s1s, pad, raw)
-            s2s = utils.padseq(s2s, pad, raw)
+            s1s = datasets.padseq(s1s, pad, raw)
+            s2s = datasets.padseq(s2s, pad, raw)
         batch = self.Batch(
             s1=s1s,
             s2=s2s,
-            sim=utils.rescale(sims[:batch_size], rescale, (0.0, 1.0)))
+            sim=datasets.rescale(sims[:batch_size], rescale, (0.0, 1.0)))
         return batch
 
     def set_vocab(self, vocab):

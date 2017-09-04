@@ -1,4 +1,4 @@
-from utils import StackExchange
+from datasets import StackExchange
 from tests.test_sts_all import TestSTS
 
 class TestStackExchange(TestSTS):
