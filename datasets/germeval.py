@@ -161,10 +161,10 @@ class DataSet():
             ner1=datasets.padseq(datasets.seq2id(ner1, self.vocab_w2i[1]), pad),
             ner2=datasets.padseq(datasets.seq2id(ner2, self.vocab_w2i[2]), pad))
 
-        ret = [batch]
+        ret = batch
         if (return_sequence_lengths):
             lens = [len(i) for i in sentences]
-            ret.append(lens)
+            return batch, lens
 
         return ret
 

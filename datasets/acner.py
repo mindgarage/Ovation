@@ -17,7 +17,8 @@ class Acner():
 
     def construct(self):
         self.dataset_name = 'ACNER: Annotated Corpus for Named Entity Recognition'
-        self.dataset_description = 'A ~1M word corpus with NER annotations.'
+        self.dataset_description = 'A ~1M words (47957 sentences) corpus with ' \
+                                   'NER annotations.'
         self.dataset_path = os.path.join(datasets.data_root_directory, 'acner')
 
         self.train_path = os.path.join(self.dataset_path, 'train.txt')
@@ -271,10 +272,10 @@ class DataSet():
             pos=datasets.padseq(datasets.seq2id(pos, self.vocab_w2i[1]), pad),
             ner=datasets.padseq(datasets.seq2id(ner, self.vocab_w2i[2]), pad))
 
-        ret = [batch]
+        ret = batch
         if (return_sequence_lengths):
             lens = [len(i) for i in sentences]
-            ret.append(lens)
+            return batch, lens
 
         return ret
 
@@ -291,8 +292,9 @@ class DataSet():
 
     def set_vocab(self, w2i, i2w, which=None):
         if (which is not None):
-            self.vocab_w2i = w2i[which]
-            self.vocab_i2w = i2w[which]
+            print("Setting vocab_w2i[{}]".format(which))
+            self.vocab_w2i[which] = w2i[which]
+            self.vocab_i2w[which] = i2w[which]
         else:
             self.vocab_w2i = w2i
             self.vocab_i2w = i2w
