@@ -110,15 +110,17 @@ class Acner():
         return self.group_words_into_sentences(all_lines)
 
     def initialize_vocabulary(self):
-        self.__initialize_vocabulary(['texts', 'pos', 'ner'], [5,1,1])
+        self.initialize_vocabulary_ll(['texts', 'pos', 'ner'], [5,1,1],
+                                      [True, False, False], 'spacy')
 
-    def __initialize_vocabulary(self, names, min_frequencies):
+    def initialize_vocabulary_ll(self, names, min_frequencies,
+                                 downcases, tokenizer):
         for i in range(len(self.vocab_paths)):
             self.vocab_paths[i], self.w2v_paths[i], self.metadata_paths[i] = \
                 datasets.new_vocabulary(
                     files=[self.train_path], dataset_path=self.dataset_path,
-                    min_frequency=min_frequencies[i], tokenizer='spacy',
-                    downcase=True, max_vocab_size=None,
+                    min_frequency=min_frequencies[i], tokenizer=tokenizer,
+                    downcase=downcases[i], max_vocab_size=None,
                     name=names[i],
                     line_processor=lambda line: line.split('\t')[i])
 
@@ -126,7 +128,7 @@ class Acner():
             self.w2v[i] = datasets.preload_w2v(self.w2i[i])
             datasets.save_w2v(self.w2v_paths[i], self.w2v[i])
 
-    def initialize_datasets(self, train_data, validate_data, test_data, shuffle):
+    def initialize_datasets(self, train_data, validate_data, test_data, shuffle=True):
         self.train = DataSet(train_data, self.w2i, self.i2w, shuffle)
         self.validate = DataSet(validate_data, self.w2i, self.i2w, shuffle)
         self.test = DataSet(test_data, self.w2i, self.i2w, shuffle)

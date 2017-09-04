@@ -23,11 +23,18 @@ class Germeval(Acner):
 
         all_data = self.load_all_data(self.dataset_path)
 
+        self.dump_all_data(*all_data)
         self.initialize_vocabulary()
         self.initialize_datasets(*all_data)
 
+    def initialize_datasets(self, train_data, validate_data, test_data, shuffle=True):
+        self.train = DataSet(train_data, self.w2i, self.i2w, shuffle)
+        self.validate = DataSet(validate_data, self.w2i, self.i2w, shuffle)
+        self.test = DataSet(test_data, self.w2i, self.i2w, shuffle)
+
     def initialize_vocabulary(self):
-        self.__initialize_vocabulary(['texts', 'ner1', 'ner2'], [5,1,1])
+        self.initialize_vocabulary_ll(['texts', 'ner1', 'ner2'], [5,1,1],
+                                      [True, False, False], 'split')
 
     def construct(self):
         self.dataset_name = 'GermEval 2014: Named Entity Recognition Shared Task'
@@ -62,8 +69,8 @@ class Germeval(Acner):
         ret = []
         for fn in file_names:
             path_plus_file_name = os.path.join(path, fn)
-            with open(path_plus_file_name, 'r', encoding='cp1252') as f:
-                csv_reader = csv.reader(f, delimiter=',')
+            with open(path_plus_file_name, 'r', encoding='utf-8') as f:
+                csv_reader = csv.reader(f, delimiter='\t', quotechar=None)
 
                 # Skip one line
                 next(csv_reader)
@@ -145,9 +152,9 @@ class DataSet():
                               ner2=ner2)
 
         # Generate sequences
-        sentences = self.generate_sequences(sentences, tokenizer)
-        ner1 = self.generate_sequences(ner1, tokenizer)
-        ner2 = self.generate_sequences(ner2, tokenizer)
+        sentences = self.generate_sequences(sentences, tokenizer='split')
+        ner1 = self.generate_sequences(ner1, tokenizer='split')
+        ner2 = self.generate_sequences(ner2, tokenizer='split')
 
         batch = self.Batch(
             sentences=datasets.padseq(datasets.seq2id(sentences, self.vocab_w2i[0]), pad),
@@ -183,12 +190,8 @@ class DataSet():
 
 if __name__ == '__main__':
     import timeit
-    t = timeit.timeit(Germeval, number=100)
+    t = timeit.timeit(Germeval, number=1)
     print(t)
-    #a = Acner()
-    #b = a.train.next_batch()
-    #print(b)
-
-
-
-
+    a = Germeval()
+    b = a.train.next_batch()
+    print(b)

@@ -150,6 +150,8 @@ def tokenize(line, tokenizer='spacy'):
                 tokens.append(token.text)
     elif tokenizer == 'nltk':
         tokens = nltk_tokenizer(line)
+    elif tokenizer == 'split':
+        tokens = line.split(' ')
     else:
         tokens = default_tokenize(line)
     return tokens
