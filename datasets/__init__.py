@@ -16,8 +16,7 @@ stratified = True
 train_validate_split = 0.9
 test_split_large = 0.3
 test_split_small = 0.2
-#data_root_directory = os.path.join('/', 'scratch', 'OSA-alpha', 'data', 'datasets')
-data_root_directory = os.path.join('..', 'data', 'datasets')
+data_root_directory = os.path.join('/', 'scratch', 'OSA-alpha', 'data', 'datasets')
 spacy_nlp = None
 
 
