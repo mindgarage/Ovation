@@ -40,7 +40,7 @@ parser.add_argument(
     help="Delimiter character for tokenizing. Use \" \" and \"\" for word and char level respectively."
 )
 args = parser.parse_args()
-spacy_tokenizer = spacy.load('en_core_web_md').tokenizer
+spacy_tokenizer = spacy.load('de').tokenizer
 
 
 # Counter for all tokens in the vocabulary
@@ -52,7 +52,7 @@ def tokenize(seq):
     doc = spacy_tokenizer(seq)
     for token in doc:
       if token.ent_type_ == '':
-        seq_tokens.append(token.text.lower())
+        seq_tokens.append(token.text)
       else:
         seq_tokens.append(token.text)
     return seq_tokens

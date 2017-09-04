@@ -17,7 +17,7 @@ parser.add_argument(
     help="Input tokenized text file to be processed.")
 
 args = parser.parse_args()
-spacy_nlp = spacy.load('en_core_web_md')
+spacy_nlp = spacy.load('de')
 spacy_tokenizer = spacy_nlp.tokenizer
 
 vocab_tokens = []

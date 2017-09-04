@@ -3,6 +3,7 @@ import json
 import datasets
 import collections
 
+from tflearn.data_utils import to_categorical
 
 class HotelReviews(object):
     def __init__(self, train_validation_split=None, test_split=None,
@@ -89,7 +90,7 @@ class DataSet(object):
 
     def next_batch(self, batch_size=64, seq_begin=False, seq_end=False,
                    rescale=None, pad=0, raw=False, mark_entities=False,
-                   tokenizer='spacy', sentence_pad=0):
+                   tokenizer='spacy', sentence_pad=0, one_hot=False):
         if not self.datafile:
             raise Exception('The dataset needs to be open before being used. '
                             'Please call dataset.open() before calling '
@@ -107,27 +108,52 @@ class DataSet(object):
             json_obj = json.loads(row.strip())
             text.append(datasets.tokenize(json_obj["text"], tokenizer))
             sentences.append(datasets.sentence_tokenizer((json_obj["text"])))
-            ratings_service.append(datasets.rescale(
-                            json_obj["ratings"]["service"], new_range=rescale,
-                            original_range=[1.0, 5.0]))
-            ratings_cleanliness.append(datasets.rescale(
-                        json_obj["ratings"]["cleanliness"], new_range=rescale,
-                        original_range=[1.0, 5.0]))
-            ratings_overall.append(datasets.rescale(
-                           json_obj["ratings"]["overall"], new_range=rescale,
-                           original_range=[1.0, 5.0]))
-            ratings_value.append(datasets.rescale(
-                               json_obj["ratings"]["value"], new_range=rescale,
-                               original_range=[1.0, 5.0]))
-            ratings_sleep_quality.append(datasets.rescale(
-                       json_obj["ratings"]["sleep_quality"], new_range=rescale,
-                       original_range=[1.0, 5.0]))
-            ratings_rooms.append(datasets.rescale(
-                               json_obj["ratings"]["rooms"], new_range=rescale,
-                               original_range=[1.0, 5.0]))
+            ratings_service.append(int(json_obj["ratings"]["service"])
+                                                if 'service' in json_obj['ratings']
+                                                else int(json_obj['ratings']['overall']))
+            ratings_cleanliness.append(int(json_obj["ratings"]["cleanliness"])
+                                                if 'cleanliness' in json_obj['ratings']
+                                                else int(json_obj['ratings']['overall']))
+            ratings_overall.append(int(json_obj["ratings"]["overall"]))
+            ratings_value.append(int(json_obj["ratings"]["value"])
+                                                if 'value' in json_obj['ratings']
+                                                else int(json_obj['ratings']['overall']))
+            ratings_sleep_quality.append(int(json_obj["ratings"]["sleep_quality"])
+                                                if 'sleep_quality' in json_obj['ratings']
+                                                else int(json_obj['ratings']['overall']))
+            ratings_rooms.append(int(json_obj["ratings"]["rooms"])
+                                                if 'rooms' in json_obj['ratings']
+                                                else int(json_obj['ratings']['overall']))
             helpful_votes.append(json_obj["num_helpful_votes"])
             titles.append(datasets.tokenize(json_obj["title"]))
-
+        
+        if rescale is not None and one_hot == False:
+            ratings_service = datasets.rescale(ratings_service, rescale, [1.0, 5.0])
+            ratings_cleanliness = datasets.rescale(ratings_cleanliness, rescale,
+                                                   [1.0, 5.0])
+            ratings_overall = datasets.rescale(ratings_overall, rescale, [1.0, 5.0])
+            ratings_value = datasets.rescale(ratings_value, rescale, [1.0, 5.0])
+            ratings_sleep_quality = datasets.rescale(ratings_sleep_quality, rescale,
+                                                     [1.0, 5.0])
+            ratings_rooms = datasets.rescale(ratings_rooms, rescale, [1.0, 5.0])
+        elif rescale is None and one_hot == True:
+            ratings_service = to_categorical([x - 1 for x in ratings_service],
+                                             nb_classes=5)
+            ratings_cleanliness = to_categorical([x - 1 for x in ratings_cleanliness],
+                                             nb_classes=5)
+            ratings_overall = to_categorical([x - 1 for x in ratings_overall],
+                                             nb_classes=5)
+            ratings_value = to_categorical([x - 1 for x in ratings_value],
+                                             nb_classes=5)
+            ratings_sleep_quality = to_categorical([x - 1 for x in ratings_sleep_quality],
+                                                   nb_classes=5)
+            ratings_rooms = to_categorical([x - 1 for x in ratings_rooms],
+                                             nb_classes=5)
+        elif rescale is None and one_hot == False:
+            pass
+        else:
+            raise ValueError('rescale and one_hot cannot be set together')
+        
         if mark_entities:
             text = datasets.mark_entities(text)
             titles = datasets.mark_entities(titles)
@@ -154,9 +180,9 @@ class DataSet(object):
             titles = datasets.padseq(titles[:batch_size], pad, raw)
             sentences = [datasets.padseq(sentence, pad, raw) for sentence in
                          sentences[:batch_size]]
-            if sentence_pad != 0:
-                sentences = [datasets.pad_sentences(sentence, pad) for
-                             sentence in sentences[:batch_size]]
+        if sentence_pad != 0:
+            sentences = [datasets.pad_sentences(sentence, pad, raw) for
+                         sentence in sentences[:batch_size]]
 
         batch = self.Batch(text=text, sentences=sentences,
                            ratings_service=ratings_service,

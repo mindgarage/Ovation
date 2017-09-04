@@ -3,6 +3,7 @@ import json
 import datasets
 import collections
 
+from tflearn.data_utils import to_categorical
 
 class AmazonReviews(object):
     def __init__(self, train_validation_split=None, test_split=None,
@@ -20,6 +21,7 @@ class AmazonReviews(object):
         self.dataset = "amazon_reviews_de"
         self.dataset_path = os.path.join(datasets.data_root_directory,
                                          self.dataset)
+        self.data_path = os.path.join(self.dataset_path, 'reviews.txt')
         self.train_path = os.path.join(self.dataset_path, 'train', 'train.txt')
         self.validation_path = os.path.join(self.dataset_path, 'validation',
                                             'validation.txt')
@@ -47,18 +49,18 @@ class AmazonReviews(object):
             return line
 
         self.vocab_path, self.w2v_path, self.metadata_path = \
-            datasets.new_vocabulary([self.train_path], self.dataset_path,
+            datasets.new_vocabulary([self.data_path], self.dataset_path,
                                     min_frequency, tokenizer=tokenizer,
                                     downcase=downcase,
                                     max_vocab_size=max_vocab_size, name=name,
-                                    line_processor=line_processor)
+                                    line_processor=line_processor, lang='de')
         self.__refresh(load_w2v)
 
     def __refresh(self, load_w2v):
         self.w2i, self.i2w = datasets.load_vocabulary(self.vocab_path)
         self.vocab_size = len(self.w2i)
         if load_w2v:
-            self.w2v = datasets.preload_w2v(self.w2i)
+            self.w2v = datasets.preload_w2v(self.w2i, lang='de')
             datasets.save_w2v(self.w2v_path, self.w2v)
         self.train.set_vocab((self.w2i, self.i2w))
         self.validation.set_vocab((self.w2i, self.i2w))
@@ -85,7 +87,7 @@ class DataSet(object):
 
     def next_batch(self, batch_size=64, seq_begin=False, seq_end=False,
                    rescale=None, pad=0, raw=False, mark_entities=False,
-                   tokenizer='spacy', sentence_pad=0):
+                   tokenizer='spacy', sentence_pad=0, one_hot=False):
         if not self.datafile:
             raise Exception('The dataset needs to be open before being used. '
                             'Please call dataset.open() before calling '
@@ -101,15 +103,22 @@ class DataSet(object):
             json_obj = json.loads(row.strip())
             text.append(datasets.tokenize(json_obj["review_text"], tokenizer))
             sentences.append(datasets.sentence_tokenizer(json_obj["review_text"]))
-            ratings.append(datasets.rescale(
-                            json_obj["review_rating"], new_range=rescale,
-                            original_range=[1.0, 5.0]))
+            ratings.append(int(json_obj["review_rating"]))
             titles.append(datasets.tokenize(json_obj["review_header"]))
-
+        
+        if rescale is not None and one_hot == False:
+            ratings = datasets.rescale(ratings, rescale, [1.0, 5.0])
+        elif rescale is None and one_hot == True:
+            ratings = [x - 1 for x in ratings]
+            ratings = to_categorical(ratings, nb_classes=5)
+        elif rescale is None and one_hot == False:
+            pass
+        else:
+            raise ValueError('rescale and one_hot cannot be set together')
         if mark_entities:
-            text = datasets.mark_entities(text)
-            titles = datasets.mark_entities(titles)
-            sentences = [datasets.mark_entities(sentence)
+            text = datasets.mark_entities(text, lang='de')
+            titles = datasets.mark_entities(titles, lang='de')
+            sentences = [datasets.mark_entities(sentence, lang='de')
                          for sentence in sentences]
 
         if not raw:
@@ -132,9 +141,9 @@ class DataSet(object):
             titles = datasets.padseq(titles[:batch_size], pad, raw)
             sentences = [datasets.padseq(sentence, pad, raw) for sentence in
                          sentences[:batch_size]]
-            if sentence_pad != 0:
-                sentences = [datasets.pad_sentences(sentence, pad) for
-                             sentence in sentences[:batch_size]]
+        if sentence_pad != 0:
+            sentences = [datasets.pad_sentences(sentence, sentence_pad, raw) for
+                         sentence in sentences[:batch_size]]
 
         batch = self.Batch(text=text, sentences=sentences,
                            ratings=ratings, titles=titles)
