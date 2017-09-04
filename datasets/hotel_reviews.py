@@ -77,35 +77,15 @@ class DataSet(object):
         self.datafile = None
 
         self.Batch = collections.namedtuple('Batch', ['text',
-                                                      'sentences',
-                                                      'ratings_services',
-                                                      'ratings_cleanliness',
-                                                      'ratings_overall',
-                                                      'ratings_value',
-                                                      'ratings_sleep_quality',
-                                                      'ratings_rooms',
-                                                      'titles',
-                                                      'helpful_votes'])
+                  'sentences', 'ratings_service', 'ratings_cleanliness',
+                  'ratings_overall', 'ratings_value', 'ratings_sleep_quality',
+                  'ratings_rooms', 'titles', 'helpful_votes'])
 
     def open(self):
         self.datafile = open(self.path, 'r')
 
     def close(self):
         self.datafile.close()
-
-    def remove_entities(self, data):
-        entities = ['PERSON', 'NORP', 'FACILITY' , 'ORG' , 'GPE' , 'LOC' +
-                    'PRODUCT' , 'EVENT' , 'WORK_OF_ART' , 'LANGUAGE' ,
-                    'DATE' , 'TIME' , 'PERCENT' , 'MONEY' , 'QUANTITY' ,
-                    'ORDINAL' , 'CARDINAL' , 'BOE', 'EOE']
-        data_ = []
-        for d in data:
-            d_ = []
-            for token in d:
-                if token not in entities:
-                    d_.append(token)
-            data_.append(d_)
-        return data_
 
     def next_batch(self, batch_size=64, seq_begin=False, seq_end=False,
                    rescale=None, pad=0, raw=False, mark_entities=False,
@@ -128,17 +108,23 @@ class DataSet(object):
             text.append(datasets.tokenize(json_obj["text"], tokenizer))
             sentences.append(datasets.sentence_tokenizer((json_obj["text"])))
             ratings_service.append(datasets.rescale(
-                                   json_obj["ratings"]["service"], rescale))
+                            json_obj["ratings"]["service"], new_range=rescale,
+                            original_range=[1.0, 5.0]))
             ratings_cleanliness.append(datasets.rescale(
-                                   json_obj["ratings"]["cleanliness"], rescale))
+                        json_obj["ratings"]["cleanliness"], new_range=rescale,
+                        original_range=[1.0, 5.0]))
             ratings_overall.append(datasets.rescale(
-                                   json_obj["ratings"]["overall"], rescale))
+                           json_obj["ratings"]["overall"], new_range=rescale,
+                           original_range=[1.0, 5.0]))
             ratings_value.append(datasets.rescale(
-                                   json_obj["ratings"]["value"], rescale))
+                               json_obj["ratings"]["value"], new_range=rescale,
+                               original_range=[1.0, 5.0]))
             ratings_sleep_quality.append(datasets.rescale(
-                               json_obj["ratings"]["sleep_quality"], rescale))
+                       json_obj["ratings"]["sleep_quality"], new_range=rescale,
+                       original_range=[1.0, 5.0]))
             ratings_rooms.append(datasets.rescale(
-                                   json_obj["ratings"]["rooms"], rescale))
+                               json_obj["ratings"]["rooms"], new_range=rescale,
+                               original_range=[1.0, 5.0]))
             helpful_votes.append(json_obj["num_helpful_votes"])
             titles.append(datasets.tokenize(json_obj["title"]))
 
@@ -168,11 +154,18 @@ class DataSet(object):
             titles = datasets.padseq(titles[:batch_size], pad, raw)
             sentences = [datasets.padseq(sentence, pad, raw) for sentence in
                          sentences[:batch_size]]
+            if sentence_pad != 0:
+                sentences = [datasets.pad_sentences(sentence, pad) for
+                             sentence in sentences[:batch_size]]
 
-        batch = self.Batch(
-            s1=s1s,
-            s2=s2s,
-            sim=datasets.rescale(sims[:batch_size], rescale, (0.0, 1.0)))
+        batch = self.Batch(text=text, sentences=sentences,
+                           ratings_service=ratings_service,
+                           ratings_cleanliness=ratings_cleanliness,
+                           ratings_overall=ratings_overall,
+                           ratings_value=ratings_value,
+                           ratings_sleep_quality=ratings_sleep_quality,
+                           ratings_rooms=ratings_rooms,
+                           titles=titles, helpful_votes=helpful_votes)
         return batch
 
     def set_vocab(self, vocab):

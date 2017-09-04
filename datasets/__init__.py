@@ -34,6 +34,17 @@ def default_tokenize(sentence):
                                 sentence) if i!='' and i!=' ' and i!='\n']
 
 
+def pad_sentences(data, pad=0):
+    if pad == 0:
+        return data
+    if pad <= len(data):
+        return data[:pad]
+    pad_vec = [0 for _ in range(len(data[-1]))]
+    for i in range(len(data) - pad):
+        data.append(pad_vec)
+    return data
+
+
 def padseq(data, pad=0, raw=False):
     if pad == 0:
         return data
@@ -96,18 +107,22 @@ def append_seq_markers(data, seq_begin=True, seq_end=True):
     return data_
 
 
-def mark_entities(line):
-    sentences = []
-    doc = spacy_tokenizer(line)
-    for sent in doc.sents:
-        sentence_tokens = []
-        for token in sent:
-            if token.ent_type_ == '':
-                sentence_tokens.append(token.text.lower())
+def mark_entities(data):
+    marked_data = []
+    spacy_nlp = get_spacy()
+    for line in data:
+        marked_line = []
+        for token in line:
+            tok = spacy_nlp(token)
+            if tok.ent_type_ != '':
+                marked_line.append('BOE')
+                marked_line.append(token)
+                marked_line.append(tok.ent_type_)
+                marked_line.append('EOE')
             else:
-                sentence_tokens.append(token.text)
-        sentences.append(sentence_tokens)
-    return sentences
+                marked_line.append(token)
+        marked_data.append(marked_line)
+    return marked_data
 
 
 def sentence_tokenizer(line):
@@ -268,6 +283,9 @@ def validate_rescale(rescale):
 
 
 def rescale(values, new_range, original_range):
+    if new_range is None:
+        return values
+
     if new_range == original_range:
         return values
 
