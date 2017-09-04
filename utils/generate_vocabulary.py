@@ -5,6 +5,7 @@ import spacy
 import argparse
 import collections
 import logging
+import progressbar
 
 parser = argparse.ArgumentParser(
     description="Generate vocabulary for a tokenized text file.")
@@ -62,6 +63,9 @@ def line_processor(line):
   line = json_obj["title"] + " " + json_obj["text"]
   return line
 
+bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength,
+                              redirect_stdout=True)
+n_line = 0
 for line in args.infile:
   if args.downcase:
     line = line.lower()
@@ -72,6 +76,9 @@ for line in args.infile:
     tokens = line.strip().split(args.delimiter)
   tokens = [_ for _ in tokens if len(_) > 0]
   cnt.update(tokens)
+  n_line += 1
+  bar.update(n_line)
+bar.finish()
 
 logging.info("Found %d unique tokens in the vocabulary.", len(cnt))
 
