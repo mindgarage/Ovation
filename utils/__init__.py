@@ -242,6 +242,12 @@ def rescale(values, new_range, original_range):
         rescaled_values.append(new_value)
     return rescaled_values
 
+def paths_exist(paths_list):
+    for i in paths_list:
+        if not os.path.exists(i):
+            return False
+    return True
+
 
 #from .microsoft_paraphrase_dataset import MicrosoftParaphraseDataset
 from .gersen import Gersen

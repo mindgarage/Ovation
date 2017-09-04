@@ -15,6 +15,31 @@ class Acner():
         #super(Acner, self).__init__(train_validate_split, test_split,
         #                            use_defaults, shuffle)
 
+    def construct(self):
+        self.dataset_name = 'ACNER: Annotated Corpus for Named Entity Recognition'
+        self.dataset_description = 'A ~1M word corpus with NER annotations.'
+        self.dataset_path = os.path.join(utils.data_root_directory, 'acner')
+
+        self.train_path = os.path.join(self.dataset_path, 'train.txt')
+        self.validate_path = os.path.join(self.dataset_path, 'validate.txt')
+        self.test_path = os.path.join(self.dataset_path, 'test.txt')
+
+        self.vocab_paths = [os.path.join(self.dataset_path, 'vocab.txt'),
+                            os.path.join(self.dataset_path, 'pos_vocab.txt'),
+                            os.path.join(self.dataset_path, 'ner_vocab.txt')]
+
+        self.metadata_paths = [os.path.join(self.dataset_path, 'metadata.txt'),
+                               os.path.join(self.dataset_path, 'pos_metadata.txt'),
+                               os.path.join(self.dataset_path, 'ner_metadata.txt')]
+
+        self.w2v_paths = [os.path.join(self.dataset_path, 'w2v.npy'),
+                          os.path.join(self.dataset_path, 'pos_w2v.npy'),
+                          os.path.join(self.dataset_path, 'ner_w2v.npy')]
+
+        self.w2i = [None, None, None]
+        self.i2w = [None, None, None]
+        self.w2v = [None, None, None]
+
     def load(self, use_defaults, train_validate_split, test_split, shuffle):
         if (use_defaults or
                 train_validate_split is None or
@@ -22,9 +47,9 @@ class Acner():
                 (os.path.exists(self.train_path) and
                 os.path.exists(self.validate_path) and
                 os.path.exists(self.test_path) and
-                os.path.exists(self.vocab_path) and
-                os.path.exists(self.metadata_path) and
-                os.path.exists(self.w2v_path)):
+                utils.paths_exist(self.vocab_paths) and
+                utils.paths_exist(self.metadata_paths) and
+                utils.paths_exist(self.w2v_paths)):
             self.initialize_defaults(shuffle)
         else:
             if test_split is None:
@@ -33,6 +58,45 @@ class Acner():
                 train_validate_split = utils.train_validate_split
             self.load_anew(train_validate_split, test_split,
                            shuffle=shuffle)
+
+    def initialize_defaults(self, shuffle):
+        # For now, we are happy that this works =)
+        self.load_anew(train_validate_split=utils.train_validate_split,
+                       test_split=utils.test_split_small, shuffle=shuffle)
+        #train_data = self.load_data(self.train_path)
+        #validate_data = self.load_data(self.validate_path)
+        #test_data = self.load_data(self.test_path)
+
+        #self.w2i, self.i2w = utils.load_vocabulary(self.vocab_path)
+        #self.w2v = utils.load_w2v(self.w2v_path)
+
+        #self.train = DataSet(train_data, (self.w2i, self.i2w), shuffle)
+        #self.validate = DataSet(validate_data, (self.w2i, self.i2w), shuffle)
+        #self.test = DataSet(test_data, (self.w2i, self.i2w), shuffle)
+
+
+    def load_anew(self, train_validate_split, test_split, shuffle=True):
+        all_data = self.load_all_data(self.dataset_path)
+
+        if shuffle:
+            random.shuffle(all_data)
+
+        # First we take the test data away
+        total_length = len(all_data)
+        test_length = int(total_length * test_split)
+        train_validate_data, test_data = all_data[:-test_length],\
+                                         all_data[-test_length:]
+
+        # Then we split the training/validation data
+        train_validate_length = len(train_validate_data)
+        train_length = int(train_validate_length * train_validate_split)
+        train_data, validate_data = train_validate_data[:train_length], \
+                                    train_validate_data[train_length:]
+
+        self.dump_all_data(train_data, validate_data, test_data)
+        self.initialize_vocabulary()
+        self.initialize_datasets(train_data, validate_data, test_data, shuffle)
+
 
     def construct(self):
         self.dataset_name = 'ACNER: Annotated Corpus for Named Entity Recognition'
@@ -73,13 +137,14 @@ class Acner():
         return self.group_words_into_sentences(all_lines)
 
     def initialize_vocabulary(self):
+        names = ['texts', 'pos', 'ner']
         for i in range(len(self.vocab_paths)):
             self.vocab_paths[i], self.w2v_paths[i], self.metadata_paths[i] = \
                 utils.new_vocabulary(
                     files=[self.train_path], dataset_path=self.dataset_path,
                     min_frequency=5, tokenizer='spacy',
                     downcase=True, max_vocab_size=None,
-                    name='new',
+                    name=names[i],
                     line_processor=lambda line: line.split('\t')[i])
 
             self.w2i[i], self.i2w[i] = utils.load_vocabulary(self.vocab_paths[i])
@@ -87,9 +152,9 @@ class Acner():
             utils.save_w2v(self.w2v_paths[i], self.w2v[i])
 
     def initialize_datasets(self, train_data, validate_data, test_data, shuffle):
-        self.train = DataSet(train_data, (self.w2i, self.i2w), shuffle)
-        self.validate = DataSet(validate_data, (self.w2i, self.i2w), shuffle)
-        self.test = DataSet(test_data, (self.w2i, self.i2w), shuffle)
+        self.train = DataSet(train_data, self.w2i, self.i2w, shuffle)
+        self.validate = DataSet(validate_data, self.w2i, self.i2w, shuffle)
+        self.test = DataSet(test_data, self.w2i, self.i2w, shuffle)
 
     def get_sentence_index(self, s):
         # `str` should look like "Sentence: 1". I want to take the "1" there.
@@ -129,6 +194,11 @@ class Acner():
                     " ".join(ner_tags),
                     curr_sentence])
         return ret
+
+    def dump_all_data(self, train_data, validate_data, test_data):
+        self.dump_data(train_data, self.train_path)
+        self.dump_data(validate_data, self.validate_path)
+        self.dump_data(test_data, self.test_path)
 
     def dump_data(self, data, path):
         with open(path, 'w') as f:
@@ -177,12 +247,19 @@ class DataSet():
         self.Batch = self.initialize_batch()
 
     def initialize_batch(self):
-        return collections.namedtuple('Batch', ['sentence', 'pos', 'ner'])
+        return collections.namedtuple('Batch', ['sentences', 'pos', 'ner'])
 
+    # I got the number of categories with:
+    # f = open('acner.csv', 'r', encoding='cp1252')
+    # csv_reader = csv.reader(f, delimiter=',')
+    # next(csv_reader)
+    # all_lines = [i for i in csv_reader]
+    # i, w, p, ner = zip(*all_lines)
+    # p = list(set(p))
+    # len(p)
     def next_batch(self, batch_size=64, seq_begin=False, seq_end=False,
-                   format='one_hot', rescale=None, pad=0, get_raw=False,
-                   return_sequence_lengths=False, tokenizer='spacy',
-                   get_pos=None):
+                   pad=0, get_raw=False, return_sequence_lengths=False,
+                   tokenizer='spacy'):
         # format: either 'one_hot' or 'numerical'
         # rescale: if format is 'numerical', then this should be a tuple
         #           (min, max)
@@ -199,46 +276,28 @@ class DataSet():
 
         data = list(zip(*samples))
         sentences = data[0]
-        poss = data[1]
-        ners = data[2]
-
-
-        if (format == 'one_hot'):
-            y = to_categorical(y, nb_classes=3)
-
-        if (rescale is not None):
-            utils.validate_rescale(rescale)
-            y = utils.rescale(y, rescale, (0.0, 2.0))
+        pos = data[1]
+        ner = data[2]
 
         if (get_raw):
-            return self.Batch(x=x, y=y)
+            return self.Batch(sentences=sentences,
+                              pos=pos,
+                              ner=ner)
 
         # Generate sequences
-        x = self.generate_sequences(x, tokenizer)
+        sentences = self.generate_sequences(sentences, tokenizer)
+        pos = self.generate_sequences(pos, tokenizer)
+        ner = self.generate_sequences(ner, tokenizer)
 
         batch = self.Batch(
-            x=utils.padseq(utils.seq2id(x, self.vocab_w2i), pad),
-            y=y)
+            sentences=utils.padseq(utils.seq2id(sentences, self.vocab_w2i[0]), pad),
+            pos=utils.padseq(utils.seq2id(pos, self.vocab_w2i[1]), pad),
+            ner=utils.padseq(utils.seq2id(ner, self.vocab_w2i[2]), pad))
 
         ret = [batch]
-
         if (return_sequence_lengths):
             lens = [len(i) for i in x]
             ret.append(lens)
-
-        if (get_pos == 'raw'):
-            ret.append(pos)
-        elif (get_pos == 'one_hot'):
-            # I got the number of categories with:
-            # f = open('acner.csv', 'r', encoding='cp1252')
-            # csv_reader = csv.reader(f, delimiter=',')
-            # next(csv_reader)
-            # all_lines = [i for i in csv_reader]
-            # i, w, p, ner = zip(*all_lines)
-            # p = list(set(p))
-            # len(p)
-            pos = to_categorical(pos, nb_classes=42)
-            ret.append(pos)
 
         return ret
 
@@ -265,3 +324,4 @@ if __name__ == '__main__':
     a = Acner()
     print(a.dataset_name)
     b = a.train.next_batch()
+    print(b)
