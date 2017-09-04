@@ -60,7 +60,7 @@ def tokenize(seq):
 
 def line_processor(line):
   json_obj = json.loads(line)
-  line = json_obj["title"] + " " + json_obj["text"]
+  line = json_obj["review_header"] + " " + json_obj["review_text"]
   return line
 
 bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength,
@@ -70,10 +70,10 @@ for line in args.infile:
   if args.downcase:
     line = line.lower()
   if args.delimiter == "":
+    tokens = list(line.strip())
+  else:
     line = line_processor(line)
     tokens = tokenize(line.strip())
-  else:
-    tokens = line.strip().split(args.delimiter)
   tokens = [_ for _ in tokens if len(_) > 0]
   cnt.update(tokens)
   n_line += 1
@@ -111,15 +111,11 @@ with open('vocab.txt', 'w') as vf, open('metadata.txt', 'w') as mf:
   mf.write('SEQ_BEGIN\t1\n')
   mf.write('SEQ_END\t1\n')
   mf.write('UNK\t1\n')
-  mf.write('BOE\t1\n')
-  mf.write('EOE\t1\n')
 
   vf.write('PAD\t1\n')
   vf.write('SEQ_BEGIN\t1\n')
   vf.write('SEQ_END\t1\n')
   vf.write('UNK\t1\n')
-  vf.write('BOE\t1\n')
-  vf.write('EOE\t1\n')
   for ent in entities:
     vf.write("{}\t{}\n".format(ent, 1))
     mf.write("{}\t{}\n".format(ent, 1))

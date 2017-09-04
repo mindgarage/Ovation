@@ -4,7 +4,7 @@ import progressbar
 
 indir = 'data/datasets/amazon_reviews_de/json'
 outpath = 'data/datasets/amazon_reviews_de/reviews.txt'
-files = os.listdir()
+files = os.listdir(indir)
 
 bar = progressbar.ProgressBar(max_value=len(files), redirect_stdout=True)
 with open(outpath, 'w') as of:

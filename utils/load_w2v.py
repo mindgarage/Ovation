@@ -30,4 +30,5 @@ for t_i, term in enumerate(vocab_tokens):
   if spacy_nlp(term).has_vector:
     w2v[t_i] = spacy_nlp(term).vector
 
+print('Vocab_Size: {}\nW2V Shape: {}'.format(len(vocab_tokens), w2v.shape))
 np.save('w2v.npy', w2v)
