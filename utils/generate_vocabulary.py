@@ -111,15 +111,11 @@ with open('vocab.txt', 'w') as vf, open('metadata.txt', 'w') as mf:
   mf.write('SEQ_BEGIN\t1\n')
   mf.write('SEQ_END\t1\n')
   mf.write('UNK\t1\n')
-  mf.write('BOE\t1\n')
-  mf.write('EOE\t1\n')
 
   vf.write('PAD\t1\n')
   vf.write('SEQ_BEGIN\t1\n')
   vf.write('SEQ_END\t1\n')
   vf.write('UNK\t1\n')
-  vf.write('BOE\t1\n')
-  vf.write('EOE\t1\n')
   for ent in entities:
     vf.write("{}\t{}\n".format(ent, 1))
     mf.write("{}\t{}\n".format(ent, 1))
