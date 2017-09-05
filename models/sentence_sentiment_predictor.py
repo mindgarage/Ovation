@@ -5,18 +5,17 @@ import datetime
 import tensorflow as tf
 
 from utils import ops
-from utils import distances
 from utils import losses
+from utils import distances
 from scipy.stats import pearsonr
 from sklearn.metrics import mean_squared_error
+from tflearn.layers.core import fully_connected
 from tensorflow.contrib.tensorboard.plugins import projector
 
 
-class SiameseCNNLSTM(object):
+class SentenceSentimentPredictor:
     """
-    A LSTM based deep Siamese network for text similarity.
-    Uses an character embedding layer, followed by a biLSTM and Energy Loss 
-    layer.
+    A LSTM network for predicting the Sentiment of a sentence.
     """
 
     def __init__(self, train_options):
@@ -32,13 +31,10 @@ class SiameseCNNLSTM(object):
         self.dropout_keep_prob = self.args.get("dropout")
 
     def create_placeholders(self):
-        self.input_s1 = tf.placeholder(tf.int32, [None,
-                                                  self.args.get("sequence_length")],
-                                       name="input_s1")
-        self.input_s2 = tf.placeholder(tf.int32, [None,
-                                                  self.args.get("sequence_length")],
-                                       name="input_s2")
-        self.input_sim = tf.placeholder(tf.float32, [None], name="input_sim")
+        self.input = tf.placeholder(tf.int32, [None,
+                      self.args.get("sequence_length")], name="input_s1")
+        self.sentiment = tf.placeholder(tf.float32, [None],
+                                            name="input_sentiment")
 
     def create_optimizer(self):
         self.optimizer = ops.get_optimizer(self.args["optimizer"]) \
@@ -48,54 +44,6 @@ class SiameseCNNLSTM(object):
         self.grads_and_vars = self.optimizer.compute_gradients(self.loss)
         self.tr_op_set = self.optimizer.apply_gradients(self.grads_and_vars,
                                               global_step=self.global_step)
-
-    def build_model(self, metadata_path=None, embedding_weights=None):
-
-        with tf.name_scope("embedding"):
-            self.embedding_weights, self.config = ops.embedding_layer(
-                                            metadata_path, embedding_weights)
-            self.embedded_s1 = tf.nn.embedding_lookup(self.embedding_weights,
-                                                      self.input_s1)
-            self.embedded_s2 = tf.nn.embedding_lookup(self.embedding_weights,
-                                                      self.input_s2)
-
-        with tf.name_scope("SIAMESE_CNN_LSTM"):
-            self.s1_cnn_out = ops.multi_filter_conv_block(self.embedded_s1,
-                                        self.args["n_filters"],
-                                        dropout_keep_prob=self.args["dropout"])
-            self.s1_lstm_out = ops.lstm_block(self.s1_cnn_out,
-                                       self.args["hidden_units"],
-                                       dropout=self.args["dropout"],
-                                       layers=self.args["rnn_layers"],
-                                       dynamic=False,
-                                       bidirectional=self.args["bidirectional"])
-
-            self.s2_cnn_out = ops.multi_filter_conv_block(self.embedded_s2,
-                                          self.args["n_filters"], reuse=True,
-                                          dropout_keep_prob=self.args["dropout"])
-            self.s2_lstm_out = ops.lstm_block(self.s2_cnn_out,
-                                       self.args["hidden_units"],
-                                       dropout=self.args["dropout"],
-                                       layers=self.args["rnn_layers"],
-                                       dynamic=False, reuse=True,
-                                       bidirectional=self.args["bidirectional"])
-            self.distance = distances.exponential(self.s1_lstm_out,
-                                                  self.s2_lstm_out)
-
-        with tf.name_scope("loss"):
-            self.loss = losses.mean_squared_error(self.input_sim, self.distance)
-
-            if self.args["l2_reg_beta"] > 0.0:
-                self.regularizer = ops.get_regularizer(self.args["l2_reg_beta"])
-                self.loss = tf.reduce_mean(self.loss + self.regularizer)
-
-        #### Evaluation Measures.
-        with tf.name_scope("Pearson_correlation"):
-            self.pco, self.pco_update = tf.contrib.metrics.streaming_pearson_correlation(
-                    self.distance, self.input_sim, name="pearson")
-        with tf.name_scope("MSE"):
-            self.mse, self.mse_update = tf.metrics.mean_squared_error(
-                    self.input_sim, self.distance,  name="mse")
 
     def create_experiment_dirs(self):
         self.exp_dir = os.path.join(self.args["data_dir"],
@@ -217,27 +165,62 @@ class SiameseCNNLSTM(object):
         print('Loading Saved Model')
         self.load_saved_model(sess)
 
-    def train_step(self, sess, s1_batch, s2_batch, sim_batch,
+    def build_model(self, metadata_path=None, embedding_weights=None):
+
+        with tf.name_scope("embedding"):
+            self.embedding_weights, self.config = ops.embedding_layer(
+                                            metadata_path, embedding_weights)
+            self.embedded_text = tf.nn.embedding_lookup(self.embedding_weights,
+                                                        self.input)
+
+        with tf.name_scope("CNN_LSTM"):
+            self.cnn_out = ops.multi_filter_conv_block(self.embedded_text,
+                                        self.args["n_filters"],
+                                        dropout_keep_prob=self.args["dropout"])
+            self.lstm_out = ops.lstm_block(self.cnn_out,
+                                       self.args["hidden_units"],
+                                       dropout=self.args["dropout"],
+                                       layers=self.args["rnn_layers"],
+                                       dynamic=False,
+                                       bidirectional=self.args["bidirectional"])
+            self.out = fully_connected(self.lstm_out, 1)
+
+        with tf.name_scope("loss"):
+            self.loss = losses.mean_squared_error(self.sentiment, self.out)
+
+            if self.args["l2_reg_beta"] > 0.0:
+                self.regularizer = ops.get_regularizer(self.args["l2_reg_beta"])
+                self.loss = tf.reduce_mean(self.loss + self.regularizer)
+
+        #### Evaluation Measures.
+        with tf.name_scope("Pearson_correlation"):
+            self.pco, self.pco_update = tf.contrib.metrics.streaming_pearson_correlation(
+                    self.out, self.sentiment, name="pearson")
+        with tf.name_scope("MSE"):
+            self.mse, self.mse_update = tf.metrics.mean_squared_error(
+                    self.sentiment, self.out,  name="mse")
+
+
+    def train_step(self, sess, text_batch, sent_batch,
                    epochs_completed, verbose=True):
             """
             A single train step
             """
             feed_dict = {
-                self.input_s1: s1_batch,
-                self.input_s2: s2_batch,
-                self.input_sim: sim_batch,
+                self.input: text_batch,
+                self.sentiment: sent_batch
             }
-            ops = [self.tr_op_set, self.global_step, self.loss, self.distance]
+            ops = [self.tr_op_set, self.global_step, self.loss, self.out]
             if hasattr(self, 'train_summary_op'):
                 ops.append(self.train_summary_op)
-                _, step, loss, sim, summaries = sess.run(ops,
+                _, step, loss, sentiment, summaries = sess.run(ops,
                     feed_dict)
                 self.train_summary_writer.add_summary(summaries, step)
             else:
-                _, step, loss, sim = sess.run(ops, feed_dict)
+                _, step, loss, sentiment = sess.run(ops, feed_dict)
 
-            pco = pearsonr(sim, sim_batch)
-            mse = mean_squared_error(sim_batch, sim)
+            pco = pearsonr(sentiment, sent_batch)
+            mse = mean_squared_error(sent_batch, sentiment)
 
             if verbose:
                 time_str = datetime.datetime.now().isoformat()
@@ -246,30 +229,28 @@ class SiameseCNNLSTM(object):
                         time_str, step, loss, pco, mse))
             return pco, mse, loss, step
 
-    def evaluate_step(self, sess, s1_batch, s2_batch, sim_batch, verbose=True):
+    def evaluate_step(self, sess, text_batch, sent_batch, verbose=True):
         """
         A single evaluation step
         """
         feed_dict = {
-            self.input_s1: s1_batch,
-            self.input_s2: s2_batch,
-            self.input_sim: sim_batch
+            self.input: text_batch,
+            self.sentiment: sent_batch
         }
-        ops = [self.global_step, self.loss, self.distance, self.pco,
+        ops = [self.global_step, self.loss, self.out, self.pco,
                self.pco_update, self.mse, self.mse_update]
         if hasattr(self, 'self.dev_summary_op'):
             ops.append(self.dev_summary_op)
-            step, loss, sim, pco, _, mse, _, summaries = sess.run(ops,
+            step, loss, sentiment, pco, _, mse, _, summaries = sess.run(ops,
                                                                   feed_dict)
             self.dev_summary_writer.add_summary(summaries, step)
         else:
-            step, loss, sim, pco, _, mse, _ = sess.run(ops, feed_dict)
+            step, loss, sentiment, pco, _, mse, _ = sess.run(ops, feed_dict)
 
         time_str = datetime.datetime.now().isoformat()
-        pco = pearsonr(sim, sim_batch)
-        mse = mean_squared_error(sim_batch, sim)
+        pco = pearsonr(sentiment, sent_batch)
+        mse = mean_squared_error(sent_batch, sentiment)
         if verbose:
             print("EVAL{}:step{}\tloss{:g}\t pco:{}\tmse:{}".format(time_str,
                                                         step, loss, pco, mse))
-        return loss, pco, mse, sim
-
+        return loss, pco, mse, sentiment

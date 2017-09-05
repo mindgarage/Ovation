@@ -89,7 +89,7 @@ def initialize_tf_graph(metadata_path, w2v):
     return sess, siamese_model
 
 
-def train(dataset, metadata_path, w2v):
+def train(dataset, metadata_path, w2v, vocab):
     print("Configuring Tensorflow Graph")
     with tf.Graph().as_default():
 
@@ -99,6 +99,9 @@ def train(dataset, metadata_path, w2v):
         dataset.train.open()
         dataset.validation.open()
         dataset.test.open()
+        dataset.train.set_vocab(vocab)
+        dataset.validation.set_vocab(vocab)
+        dataset.test.set_vocab(vocab)
 
         min_validation_loss = float("inf")
         avg_val_loss = 0.0
@@ -107,10 +110,11 @@ def train(dataset, metadata_path, w2v):
         while dataset.train.epochs_completed <= FLAGS.num_epochs:
             train_batch = dataset.train.next_batch(batch_size=FLAGS.batch_size,
                                                pad=siamese_model.args["sequence_length"])
-            pco, mse, loss, step =  siamese_model.train_step(sess, train_batch.s1,
-                                                         train_batch.s2,
-                                                         train_batch.sim,
-                                                         dataset.train.epochs_completed)
+            pco, mse, loss, step = siamese_model.train_step(sess,
+                                                 train_batch.s1,
+                                                 train_batch.s2,
+                                                 train_batch.sim,
+                                                 dataset.train.epochs_completed)
 
 
             if step % FLAGS.evaluate_every == 0:
@@ -308,8 +312,10 @@ if __name__ == '__main__':
     
     sick = Sick()
     if FLAGS.mode == 'train':
-        train(sick, sts.metadata_path, sts.w2v)
+        train(sick, sts.metadata_path, sts.w2v, (sts.w2i, sts.i2w))
     elif FLAGS.mode == 'test':
-        test(sick, sts.metadata_path, sts.w2v, rescale=[1.0, 5.0])
+        test(sick, sts.metadata_path, sts.w2v, (sts.w2i, sts.i2w),
+                 rescale=[1.0, 5.0])
     elif FLAGS.mode == 'results':
-        results(sick, sts.metadata_path, sts.w2v, rescale=[1.0, 5.0])
+        results(sick, sts.metadata_path, sts.w2v, (sts.w2i, sts.i2w),
+                rescale=[1.0, 5.0])

@@ -8,6 +8,7 @@ import spacy
 import tflearn
 import collections
 import numpy as np
+import progressbar
 
 from nltk.tokenize import word_tokenize as nltk_tokenizer
 
@@ -18,15 +19,23 @@ test_split_large = 0.3
 test_split_small = 0.2
 data_root_directory = os.path.join('/', 'scratch', 'OSA-alpha', 'data', 'datasets')
 spacy_nlp = None
+spacy_nlp_de = None
 
 
-def get_spacy():
+def get_spacy(lang='en'):
     global spacy_nlp
+    global spacy_nlp_de
     if spacy_nlp is None:
         spacy_nlp = spacy.load('en_core_web_md')
-    return spacy_nlp
+    if spacy_nlp_de is None:
+        spacy_nlp_de = spacy.load('de')
+    if lang == 'en':
+        return spacy_nlp
+    else:
+        return spacy_nlp_de
 
-spacy_tokenizer = get_spacy().tokenizer
+spacy_tokenizer = get_spacy(lang='en').tokenizer
+spacy_tokenizer_de = get_spacy(lang='de').tokenizer
 
 
 def default_tokenize(sentence):
@@ -34,13 +43,13 @@ def default_tokenize(sentence):
                                 sentence) if i!='' and i!=' ' and i!='\n']
 
 
-def pad_sentences(data, pad=0):
+def pad_sentences(data, pad=0, raw=False):
     if pad == 0:
         return data
     if pad <= len(data):
         return data[:pad]
-    pad_vec = [0 for _ in range(len(data[-1]))]
-    for i in range(len(data) - pad):
+    pad_vec = [0 if not raw else 'PAD' for _ in range(len(data[-1]))]
+    for i in range(pad - len(data)):
         data.append(pad_vec)
     return data
 
@@ -107,13 +116,13 @@ def append_seq_markers(data, seq_begin=True, seq_end=True):
     return data_
 
 
-def mark_entities(data):
+def mark_entities(data, lang='en'):
     marked_data = []
     spacy_nlp = get_spacy()
     for line in data:
         marked_line = []
         for token in line:
-            tok = spacy_nlp(token)
+            tok = spacy_nlp(token, lang)
             if tok.ent_type_ != '':
                 marked_line.append('BOE')
                 marked_line.append(token)
@@ -127,7 +136,7 @@ def mark_entities(data):
 
 def sentence_tokenizer(line):
     sentences = []
-    doc = spacy_tokenizer(line)
+    doc = get_spacy()(line)
     for sent in doc.sents:
         sentence_tokens = []
         for token in sent:
@@ -138,13 +147,22 @@ def sentence_tokenizer(line):
         sentences.append(sentence_tokens)
     return sentences
 
-def tokenize(line, tokenizer='spacy'):
+def tokenize(line, tokenizer='spacy', lang='en'):
     tokens = []
     if tokenizer == 'spacy':
-        doc = spacy_tokenizer(line)
+        if lang == 'en':
+            doc = spacy_tokenizer(line)
+        elif lang == 'de':
+            doc = spacy_tokenizer_de(line)
+        else:
+            doc = spacy_tokenizer(line)
         for token in doc:
             if token.ent_type_ == '':
-                tokens.append(token.text.lower())
+                if lang == 'en':
+                    text = token.text.lower()
+                else:
+                   text =  token.text
+                tokens.append(text)
             else:
                 tokens.append(token.text)
     elif tokenizer == 'nltk':
@@ -157,16 +175,22 @@ def tokenize(line, tokenizer='spacy'):
 
 
 def vocabulary_builder(data_paths, min_frequency=5, tokenizer='spacy',
-                   downcase=True, max_vocab_size=None, line_processor=None):
+                   downcase=True, max_vocab_size=None, line_processor=None, lang='en'):
     cnt = collections.Counter()
     for data_path in data_paths:
+        bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength,
+                                      redirect_stdout=True)
+        n_line = 0
         for line in open(data_path, 'r'):
             line = line_processor(line)
             if downcase:
                 line = line.lower()
-            tokens = tokenize(line, tokenizer)
+            tokens = tokenize(line, tokenizer, lang)
             tokens = [_ for _ in tokens if len(_) > 0]
             cnt.update(tokens)
+            n_line += 1
+            bar.update(n_line)
+        bar.finish()
 
     print("Found %d unique tokens in the vocabulary.", len(cnt))
 
@@ -193,7 +217,7 @@ def vocabulary_builder(data_paths, min_frequency=5, tokenizer='spacy',
 
 def new_vocabulary(files, dataset_path, min_frequency, tokenizer,
                     downcase, max_vocab_size, name,
-                    line_processor=lambda line: " ".join(line.split('\t')[:2])):
+                    line_processor=lambda line: " ".join(line.split('\t')[:2]), lang='en'):
 
     vocab_path = os.path.join(dataset_path,
                               '{}_{}_{}_{}_{}_vocab.txt'.format(
@@ -217,8 +241,13 @@ def new_vocabulary(files, dataset_path, min_frequency, tokenizer,
     word_with_counts = vocabulary_builder(files,
                 min_frequency=min_frequency, tokenizer=tokenizer,
                 downcase=downcase, max_vocab_size=max_vocab_size,
-                line_processor=line_processor)
+                line_processor=line_processor, lang=lang)
 
+    entities = ['PERSON', 'NORP', 'FACILITY', 'ORG', 'GPE', 'LOC' +
+                'PRODUCT', 'EVENT', 'WORK_OF_ART', 'LANGUAGE',
+                'DATE', 'TIME', 'PERCENT', 'MONEY', 'QUANTITY',
+                'ORDINAL', 'CARDINAL', 'BOE', 'EOE']
+    
     with open(vocab_path, 'w') as vf, open(metadata_path, 'w') as mf:
         mf.write('word\tfreq\n')
         mf.write('PAD\t1\n')
@@ -230,12 +259,28 @@ def new_vocabulary(files, dataset_path, min_frequency, tokenizer,
         vf.write('SEQ_BEGIN\t1\n')
         vf.write('SEQ_END\t1\n')
         vf.write('UNK\t1\n')
+        
+        for ent in entities :
+            vf.write("{}\t{}\n".format(ent, 1))
+            mf.write("{}\t{}\n".format(ent, 1))
         for word, count in word_with_counts:
             vf.write("{}\t{}\n".format(word, count))
             mf.write("{}\t{}\n".format(word, count))
 
     return vocab_path, w2v_path, metadata_path
 
+def load_classes(classes_path):
+    c2i = {}
+    i2c = {}
+
+    with open(classes_path, 'r') as cf:
+        for line in cf:
+            line = line.strip()
+            cols = line.split('\t')
+            label, id = cols[0], int(cols[1])
+            c2i[label] = id
+            i2c[id] = label
+    return c2i, i2c
 
 def load_vocabulary(vocab_path):
     w2i = {}
@@ -252,11 +297,11 @@ def load_vocabulary(vocab_path):
     return w2i, i2w
 
 
-def preload_w2v(w2i, initialize='random'):
+def preload_w2v(w2i, initialize='random', lang='en'):
     '''
     initialize can be "random" or "zeros"
     '''
-    spacy_nlp = get_spacy()
+    spacy_nlp = get_spacy(lang)
     if initialize == 'random':
         w2v = np.random.rand(len(w2i) , 300)
     else:
@@ -320,5 +365,7 @@ from .quora import Quora
 from .stack_exchange import StackExchange
 from .sem_eval import SemEval
 from .sick import Sick
+from .hotel_reviews import HotelReviews
+from .amazon_reviews import AmazonReviews
 #from gersen import Gersen
 

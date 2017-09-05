@@ -17,7 +17,7 @@ parser.add_argument(
     help="Input tokenized text file to be processed.")
 
 args = parser.parse_args()
-spacy_nlp = spacy.load('en_core_web_md')
+spacy_nlp = spacy.load('de')
 spacy_tokenizer = spacy_nlp.tokenizer
 
 vocab_tokens = []
@@ -30,4 +30,5 @@ for t_i, term in enumerate(vocab_tokens):
   if spacy_nlp(term).has_vector:
     w2v[t_i] = spacy_nlp(term).vector
 
+print('Vocab_Size: {}\nW2V Shape: {}'.format(len(vocab_tokens), w2v.shape))
 np.save('w2v.npy', w2v)

@@ -5,6 +5,7 @@ import spacy
 import argparse
 import collections
 import logging
+import progressbar
 
 parser = argparse.ArgumentParser(
     description="Generate vocabulary for a tokenized text file.")
@@ -39,7 +40,7 @@ parser.add_argument(
     help="Delimiter character for tokenizing. Use \" \" and \"\" for word and char level respectively."
 )
 args = parser.parse_args()
-spacy_tokenizer = spacy.load('en_core_web_md').tokenizer
+spacy_tokenizer = spacy.load('de').tokenizer
 
 
 # Counter for all tokens in the vocabulary
@@ -51,7 +52,7 @@ def tokenize(seq):
     doc = spacy_tokenizer(seq)
     for token in doc:
       if token.ent_type_ == '':
-        seq_tokens.append(token.text.lower())
+        seq_tokens.append(token.text)
       else:
         seq_tokens.append(token.text)
     return seq_tokens
@@ -59,19 +60,25 @@ def tokenize(seq):
 
 def line_processor(line):
   json_obj = json.loads(line)
-  line = json_obj["title"] + " " + json_obj["text"]
+  line = json_obj["review_header"] + " " + json_obj["review_text"]
   return line
 
+bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength,
+                              redirect_stdout=True)
+n_line = 0
 for line in args.infile:
   if args.downcase:
     line = line.lower()
   if args.delimiter == "":
+    tokens = list(line.strip())
+  else:
     line = line_processor(line)
     tokens = tokenize(line.strip())
-  else:
-    tokens = line.strip().split(args.delimiter)
   tokens = [_ for _ in tokens if len(_) > 0]
   cnt.update(tokens)
+  n_line += 1
+  bar.update(n_line)
+bar.finish()
 
 logging.info("Found %d unique tokens in the vocabulary.", len(cnt))
 
@@ -104,15 +111,11 @@ with open('vocab.txt', 'w') as vf, open('metadata.txt', 'w') as mf:
   mf.write('SEQ_BEGIN\t1\n')
   mf.write('SEQ_END\t1\n')
   mf.write('UNK\t1\n')
-  mf.write('BOE\t1\n')
-  mf.write('EOE\t1\n')
 
   vf.write('PAD\t1\n')
   vf.write('SEQ_BEGIN\t1\n')
   vf.write('SEQ_END\t1\n')
   vf.write('UNK\t1\n')
-  vf.write('BOE\t1\n')
-  vf.write('EOE\t1\n')
   for ent in entities:
     vf.write("{}\t{}\n".format(ent, 1))
     mf.write("{}\t{}\n".format(ent, 1))
