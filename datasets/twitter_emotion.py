@@ -46,11 +46,11 @@ class TwitterEmotion(object):
 
         self.vocab_size = len(self.w2i)
         self.train = DataSet(self.train_paths, (self.w2i, self.i2w),
-                             (self.c2i, self.i2c))
+                             (self.c2i, self.i2c), self.n_classes)
         self.validation = DataSet(self.validation_paths, (self.w2i, self.i2w),
-                                  (self.c2i, self.i2c))
+                                  (self.c2i, self.i2c), self.n_classes)
         self.test = DataSet(self.test_paths, (self.w2i, self.i2w),
-                            (self.c2i, self.i2c))
+                            (self.c2i, self.i2c), self.n_classes)
         self.__refresh(load_w2v=False)
 
     def create_vocabulary(self, min_frequency=5, tokenizer='spacy',
@@ -80,26 +80,30 @@ class TwitterEmotion(object):
 
 
 class DataSet(object):
-    def __init__(self, paths, vocab, classes):
+    def __init__(self, paths, vocab, classes, n_classes):
 
         self.paths = paths
-        self._epochs_completed = {i: 0 for i in range(5)}
+        self._epochs_completed = 0
+        self.n_classes = n_classes
         self.vocab_w2i = vocab[0]
         self.vocab_i2w = vocab[1]
         self.c2i = classes[0]
         self.i2c = classes[1]
         self.datafiles = None
 
-        self.Batch = collections.namedtuple('Batch', ['text', 'sentences',
-                                                     'ratings', 'titles'])
+        self.Batch = collections.namedtuple('Batch', ['text', 'emotion'])
 
-    def open(self):
-        self.datafiles = {p_i: open(path, 'r') for p_i, path in enumerate(
-                            self.paths)}
+    def open(self, fold=0):
+        if self.valid_fold(fold=fold):
+            self.datafile = open(self.paths[fold], 'r')
+            self._epochs_completed = 0
+        else:
+            raise ValueError('Only 5 folds are available. fold can take '
+                             'values from 0 - 4 Please use folds in this range')
 
     def close(self):
-        for f_i in self.datafiles:
-            self.datafiles[f_i].close()
+        self.datafile.close()
+        
 
     def valid_fold(self, fold):
         if fold >=0 and fold <= 4:
@@ -108,30 +112,28 @@ class DataSet(object):
             return False
 
     def next_batch(self, batch_size=64, seq_begin=False, seq_end=False,
-                   rescale=None, pad=0, raw=False, mark_entities=False,
-                   tokenizer='spacy', sentence_pad=0, one_hot=False, fold=0):
-        if not self.valid_fold(fold=fold):
-            raise ValueError('Only 5 folds are available. fold can take '
-                             'values from 0 - 4 Please use folds in this range')
-        if not self.datafiles:
+                   pad=0, raw=False, mark_entities=False, tokenizer='spacy',
+                   one_hot=False):
+
+        if not self.datafile:
             raise Exception('The dataset needs to be open before being used. '
                             'Please call dataset.open() before calling '
                             'dataset.next_batch()')
         text, emotion = [], []
 
         while len(text) < batch_size:
-            row = self.datafiles[fold].readline()
+            row = self.datafile.readline()
             if row == '':
-                self._epochs_completed[fold] += 1
-                self.datafiles[fold].seek(0)
+                self._epochs_completed += 1
+                self.datafiles.seek(0)
                 continue
             cols = row.strip().split('\t')
-            tweet, emotion = cols[0], cols[1]
+            tweet, emo = cols[0], int(cols[1])
             text.append(datasets.tokenize(tweet, tokenizer))
-            emotion.append(emotion)
+            emotion.append(emo)
 
         if one_hot:
-            emotion = to_categorical(emotion, nb_classes=5)
+            emotion = to_categorical(emotion, nb_classes=self.n_classes)
 
         if mark_entities:
             text = datasets.mark_entities(text, lang='en')
@@ -146,7 +148,7 @@ class DataSet(object):
         if pad != 0:
             text = datasets.padseq(text[:batch_size], pad, raw)
 
-        batch = self.Batch(text=text, sentences=emotion)
+        batch = self.Batch(text=text, emotion=emotion)
         return batch
 
     def set_vocab(self, vocab):
@@ -154,5 +156,5 @@ class DataSet(object):
         self.vocab_i2w = vocab[1]
 
     @property
-    def epochs_completed(self, fold=0):
-        return self._epochs_completed[fold]
+    def epochs_completed(self):
+        return self._epochs_completed
