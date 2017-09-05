@@ -167,6 +167,8 @@ def tokenize(line, tokenizer='spacy', lang='en'):
                 tokens.append(token.text)
     elif tokenizer == 'nltk':
         tokens = nltk_tokenizer(line)
+    elif tokenizer == 'split':
+        tokens = line.split(' ')
     else:
         tokens = default_tokenize(line)
     return tokens
@@ -345,6 +347,12 @@ def rescale(values, new_range, original_range):
                        new_range[0]
         rescaled_values.append(new_value)
     return rescaled_values
+
+def paths_exist(paths_list):
+    for i in paths_list:
+        if not os.path.exists(i):
+            return False
+    return True
 
 
 #from .microsoft_paraphrase_dataset import MicrosoftParaphraseDataset

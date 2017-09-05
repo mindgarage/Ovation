@@ -10,6 +10,10 @@ from tflearn.data_utils import to_categorical
 class Gersen(object):
     def __init__(self, train_validate_split=None, test_split=None, use_defaults=False,
                     shuffle=True):
+        self.construct()
+        self.load(use_defaults, train_validate_split, test_split, shuffle)
+
+    def construct(self):
         self.dataset_name = 'GerSEN: Dataset with sentiment-annotated sentences'
         self.dataset_description = 'The dataset consists of sentiment ' \
                     'annotated sentences.'
@@ -23,6 +27,7 @@ class Gersen(object):
         self.metadata_path = os.path.join(self.dataset_path, 'metadata.txt')
         self.w2v_path = os.path.join(self.dataset_path, 'w2v.npy')
 
+    def load(self, use_defaults, train_validate_split, test_split, shuffle):
         if (use_defaults or
                 train_validate_split is None or
                 test_split is None) and \
@@ -57,7 +62,7 @@ class Gersen(object):
         self.test = DataSet(test_data, (self.w2i, self.i2w), shuffle)
 
     def load_anew(self, train_validate_split, test_split, shuffle=True):
-        all_data, self.all_files = self.load_all_data(self.dataset_path)
+        all_data = self.load_all_data(self.dataset_path)
 
         if shuffle:
             random.shuffle(all_data)
@@ -75,19 +80,24 @@ class Gersen(object):
                                     train_validate_data[train_length:]
 
         self.dump_all_data(train_data, validate_data, test_data)
+        self.initialize_vocabulary()
+        self.initialize_datasets(train_data, validate_data, test_data, shuffle)
 
-        # Create vocabulary
+    def initialize_vocabulary(self):
+        line_processor = lambda line: " ".join(line.split('\t')[:1])
+
         self.vocab_path, self.w2v_path, self.metadata_path = \
             datasets.new_vocabulary(
                 files=[self.train_path], dataset_path=self.dataset_path,
                 min_frequency=5, tokenizer='spacy',
                 downcase=True, max_vocab_size=None,
-                name='new')
+                name='new', line_processor=line_processor)
 
         self.w2i, self.i2w = datasets.load_vocabulary(self.vocab_path)
         self.w2v = datasets.preload_w2v(self.w2i)
         datasets.save_w2v(self.w2v_path, self.w2v)
 
+    def initialize_datasets(self, train_data, validate_data, test_data, shuffle):
         self.train = DataSet(train_data, (self.w2i, self.i2w), shuffle)
         self.validate = DataSet(validate_data, (self.w2i, self.i2w), shuffle)
         self.test = DataSet(test_data, (self.w2i, self.i2w), shuffle)
@@ -124,8 +134,10 @@ class Gersen(object):
                 with open(j, 'r', encoding='utf8') as f:
                     all_data.append((f.readline(), i))
 
+        self.all_files = [i for j in all_files for i in j]
+
         # This list comprehension "flattens" all_files
-        return all_data, [i for j in all_files for i in j]
+        return all_data #, [i for j in all_files for i in j]
 
     def __refresh(self, load_w2v):
         self.w2i, self.i2w = datasets.load_vocabulary(self.vocab_path)
@@ -153,9 +165,12 @@ class DataSet(object):
         self._epochs_completed = 0
         self._index_in_epoch = 0
         self.datafile = None
-        self.Batch = collections.namedtuple('Batch', ['x', 'y'])
         self.set_vocab(vocab)
         self.data = data
+        self.Batch = self.initialize_batch()
+
+    def initialize_batch(self):
+        return collections.namedtuple('Batch', ['x', 'y'])
 
     def next_batch(self, batch_size=64, seq_begin=False, seq_end=False,
                    format='one_hot', rescale=None, pad=0, get_raw=False,
@@ -213,3 +228,7 @@ class DataSet(object):
         self.vocab_w2i = vocab[0]
         self.vocab_i2w = vocab[1]
 
+
+if __name__ == "__main__":
+    a = Gersen()
+    b = a.train.next_batch()

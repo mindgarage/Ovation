@@ -37,7 +37,7 @@ class TestGersenBatches(object):
 
     def test_next_batch_big_with_seq_lens(self):
         # batch of 128, rescaled, sequence lengths
-        batch, less = self.g.train.next_batch(batch_size=128, rescale=(0.0, 1.0),
+        batch, lens = self.g.train.next_batch(batch_size=128, rescale=(0.0, 1.0),
                         return_sequence_lengths=True, format='numerical', pad=20)
         assert_equal(len(batch.x), 128)
         assert_equal(len(batch.y), 128)
