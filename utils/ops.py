@@ -39,14 +39,13 @@ def multi_filter_conv_block(input, n_filters, reuse=False,
     return cnn_out
 
 
-def lstm_block(input, hidden_units=128, dropout=0.5, reuse=False,
-                     layers=1, dynamic=True, return_seq=False,
-                       bidirectional=False):
+def lstm_block(input, hidden_units=128, dropout=0.5, reuse=False, layers=1,
+                           dynamic=True, return_seq=False, bidirectional=False):
     output = None
     prev_output = input
     for n_layer in range(layers):
         if not bidirectional:
-            if n_layer < layers - 2:
+            if n_layer < layers - 1:
                 output = tflearn.lstm(prev_output, hidden_units, dropout=dropout,
                                 dynamic=dynamic, reuse=reuse,
                                 scope='lstm_{}'.format(n_layer), return_seq=True)
@@ -96,8 +95,7 @@ def embedding_layer(metadata_path=None, embedding_weights=None,
     """
     W = None
     if embedding_weights is not None:
-        w2v_init = tf.constant(embedding_weights, dtype=tf.float32) if \
-            embedding_weights is not None else None
+        w2v_init = tf.constant(embedding_weights, dtype=tf.float32)
         W = tf.Variable(w2v_init, trainable=trainable, name="W_embedding")
     else:
         W = tf.get_variable("word_embeddings", [vocab_size, embedding_shape],
