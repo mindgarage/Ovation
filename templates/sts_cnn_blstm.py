@@ -32,6 +32,7 @@ tf.flags.DEFINE_string("optimizer", 'adam', "Number of layers in the RNN")
 tf.flags.DEFINE_integer("learning_rate", 0.0001, "Learning Rate")
 tf.flags.DEFINE_boolean("bidirectional", True, "Flag to have Bidirectional "
                                                "LSTMs")
+tf.flags.DEFINE_integer("sequence_length", 30, "maximum length of a sequence")
 
 # Training parameters
 tf.flags.DEFINE_integer("max_checkpoints", 100, "Maximum number of "
@@ -45,6 +46,7 @@ tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many"
                                                   " steps (default: 100)")
 tf.flags.DEFINE_integer("max_dev_itr", 100, "max munber of dev iterations "
                               "to take for in-training evaluation")
+
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft"
                                                       " device placement")
@@ -52,14 +54,11 @@ tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops"
                                                        " on devices")
 tf.flags.DEFINE_boolean("verbose", True, "Log Verbosity Flag")
 tf.flags.DEFINE_float("gpu_fraction", 0.5, "Fraction of GPU to use")
-
-tf.flags.DEFINE_integer("sequence_length", 30, "maximum length of a sequence")
 tf.flags.DEFINE_string("dataset", "sts", "name of the dataset")
 tf.flags.DEFINE_string("data_dir", "/tmp", "path to the root of the data "
                                            "directory")
 tf.flags.DEFINE_string("experiment_name", "STS_CNN_LSTM", "Name of your model")
 tf.flags.DEFINE_string("mode", "train", "'train' or 'test or phase2'")
-
 
 
 FLAGS = tf.flags.FLAGS

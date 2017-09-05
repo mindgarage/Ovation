@@ -267,6 +267,18 @@ def new_vocabulary(files, dataset_path, min_frequency, tokenizer,
 
     return vocab_path, w2v_path, metadata_path
 
+def load_classes(classes_path):
+    c2i = {}
+    i2c = {}
+
+    with open(classes_path, 'r') as cf:
+        for line in cf:
+            line = line.strip()
+            cols = line.split('\t')
+            label, id = cols[0], int(cols[1])
+            c2i[label] = id
+            i2c[id] = label
+    return c2i, i2c
 
 def load_vocabulary(vocab_path):
     w2i = {}
