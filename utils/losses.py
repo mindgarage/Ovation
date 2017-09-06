@@ -8,6 +8,7 @@ def mean_squared_error(ground_truth, predictions):
     :param predictions:
     :return:
     '''
-    loss = tf.losses.mean_squared_error(ground_truth, predictions)
-    return loss
+    return tf.losses.mean_squared_error(ground_truth, predictions)
 
+def categorical_cross_entropy(ground_truth, predictions):
+    return tf.losses.softmax_cross_entropy(ground_truth, predictions)

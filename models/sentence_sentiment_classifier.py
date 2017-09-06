@@ -13,11 +13,10 @@ from tflearn.layers.core import fully_connected
 from tensorflow.contrib.tensorboard.plugins import projector
 
 
-class SentenceSentimentRegressor:
+class SentenceSentimentClassifier:
     """
     A LSTM network for predicting the Sentiment of a sentence.
     """
-
     def __init__(self, train_options):
         self.args = train_options
         self.create_placeholders()
@@ -31,10 +30,10 @@ class SentenceSentimentRegressor:
         self.dropout_keep_prob = self.args.get("dropout")
 
     def create_placeholders(self):
-        self.input = tf.placeholder(tf.int32, [None,
-                      self.args.get("sequence_length")], name="input_s1")
-        self.sentiment = tf.placeholder(tf.float32, [None],
-                                            name="input_sentiment")
+        self.sentence = tf.placeholder(tf.int32,
+                                [None, self.args.get("sequence_length")],
+                                name="sentence")
+        self.sentiment = tf.placeholder(tf.float32, [None], name="sentiment")
 
     def create_optimizer(self):
         self.optimizer = ops.get_optimizer(self.args["optimizer"]) \
@@ -68,6 +67,52 @@ class SentenceSentimentRegressor:
         if not os.path.exists(self.test_results_dir):
             os.makedirs(self.test_results_dir)
 
+    def save_train_options(self):
+        pickle.dump(self.args, open(self.train_options_path, 'wb'))
+        print('Saved Training options')
+
+    def load_train_options(self):
+        if os.path.exists(self.train_options_path):
+            self.args = pickle.load(open(self.train_options_path, 'rb'))
+            print('Loaded Training options')
+        else:
+            print('Could not find training options so using currently given '
+                  'values.')
+
+    def build_model(self, metadata_path=None, embedding_weights=None):
+        with tf.name_scope("embedding"):
+            self.embedding_weights, self.config = ops.embedding_layer(
+                                            metadata_path, embedding_weights)
+            self.embedded_text = tf.nn.embedding_lookup(self.embedding_weights,
+                                                      self.sentence)
+
+        with tf.name_scope("CNN_LSTM"):
+            self.cnn_out = ops.multi_filter_conv_block(self.embedded_text,
+                                        self.args["n_filters"],
+                                        dropout_keep_prob=self.args["dropout"])
+            self.lstm_out = ops.lstm_block(self.cnn_out,
+                                       self.args["hidden_units"],
+                                       dropout=self.args["dropout"],
+                                       layers=self.args["rnn_layers"],
+                                       dynamic=False,
+                                       bidirectional=self.args["bidirectional"])
+            self.out = fully_connected(self.lstm_out, 5)
+
+        with tf.name_scope("loss"):
+            self.loss = losses.categorical_cross_entropy(self.sentiment, self.out)
+
+            if self.args["l2_reg_beta"] > 0.0:
+                self.regularizer = ops.get_regularizer(self.args["l2_reg_beta"])
+                self.loss = tf.reduce_mean(self.loss + self.regularizer)
+
+        #### Evaluation Measures.
+        with tf.name_scope("Accuracy"):
+            self.correct_preds = tf.equal(tf.argmax(self.out),
+                                          tf.argmax(self.sentiment))
+            self.accuracy = tf.reduce_mean(
+                                tf.cast(self.correct_preds, tf.float32),
+                                name="accuracy")
+
     def create_histogram_summary(self):
         grad_summaries = []
         for g, v in self.grads_and_vars:
@@ -82,13 +127,11 @@ class SentenceSentimentRegressor:
     def create_scalar_summary(self, sess):
         # Summaries for loss and accuracy
         self.loss_summary = tf.summary.scalar("loss", self.loss)
-        self.pearson_summary = tf.summary.scalar("pco", self.pco)
-        self.mse_summary = tf.summary.scalar("mse", self.mse)
+        self.accuracy = tf.summary.scalar("accuracy", self.accuracy)
 
         # Train Summaries
         self.train_summary_op = tf.summary.merge([self.loss_summary,
-                                                  self.pearson_summary,
-                                                  self.mse_summary])
+                                                  self.accuracy])
 
         self.train_summary_writer = tf.summary.FileWriter(self.checkpoint_dir,
                                                      sess.graph)
@@ -97,8 +140,7 @@ class SentenceSentimentRegressor:
 
         # Dev summaries
         self.dev_summary_op = tf.summary.merge([self.loss_summary,
-                                                self.pearson_summary,
-                                                self.mse_summary])
+                                                self.accuracy])
 
         self.dev_summary_writer = tf.summary.FileWriter(self.dev_summary_dir,
                                                    sess.graph)
@@ -117,18 +159,6 @@ class SentenceSentimentRegressor:
         graphpb_txt = str(graph_def)
         with open(os.path.join(self.checkpoint_dir, "graphpb.txt"), 'w') as f:
             f.write(graphpb_txt)
-
-    def save_train_options(self):
-        pickle.dump(self.args, open(self.train_options_path, 'wb'))
-        print('Saved Training options')
-
-    def load_train_options(self):
-        if os.path.exists(self.train_options_path):
-            self.args = pickle.load(open(self.train_options_path, 'rb'))
-            print('Loaded Training options')
-        else:
-            print('Could not find training options so using currently given '
-                  'values.')
 
     def show_train_params(self):
         print("\nParameters:")
@@ -165,91 +195,53 @@ class SentenceSentimentRegressor:
         print('Loading Saved Model')
         self.load_saved_model(sess)
 
-    def build_model(self, metadata_path=None, embedding_weights=None):
-
-        with tf.name_scope("embedding"):
-            self.embedding_weights, self.config = ops.embedding_layer(
-                                            metadata_path, embedding_weights)
-            self.embedded_text = tf.nn.embedding_lookup(self.embedding_weights,
-                                                        self.input)
-
-        with tf.name_scope("CNN_LSTM"):
-            self.cnn_out = ops.multi_filter_conv_block(self.embedded_text,
-                                        self.args["n_filters"],
-                                        dropout_keep_prob=self.args["dropout"])
-            self.lstm_out = ops.lstm_block(self.cnn_out,
-                                       self.args["hidden_units"],
-                                       dropout=self.args["dropout"],
-                                       layers=self.args["rnn_layers"],
-                                       dynamic=False,
-                                       bidirectional=self.args["bidirectional"])
-            self.out = tf.squeeze(fully_connected(self.lstm_out, 1, activation='sigmoid'))
-
-        with tf.name_scope("loss"):
-            self.loss = losses.mean_squared_error(self.sentiment, self.out)
-
-            if self.args["l2_reg_beta"] > 0.0:
-                self.regularizer = ops.get_regularizer(self.args["l2_reg_beta"])
-                self.loss = tf.reduce_mean(self.loss + self.regularizer)
-
-        #### Evaluation Measures.
-        with tf.name_scope("Pearson_correlation"):
-            self.pco, self.pco_update = tf.contrib.metrics.streaming_pearson_correlation(
-                    self.out, self.sentiment, name="pearson")
-        with tf.name_scope("MSE"):
-            self.mse, self.mse_update = tf.metrics.mean_squared_error(
-                    self.sentiment, self.out,  name="mse")
-
-    def train_step(self, sess, text_batch, sent_batch,
+    def train_step(self, sess, text_batch, sentiment_batch,
                    epochs_completed, verbose=True):
             """
             A single train step
             """
             feed_dict = {
-                self.input: text_batch,
-                self.sentiment: sent_batch
+                self.sentence: text_batch,
+                self.sentiment: sentiment_batch,
             }
-            ops = [self.tr_op_set, self.global_step, self.loss, self.out]
+            ops = [self.tr_op_set, self.global_step,
+                   self.loss, self.out, self.accuracy]
             if hasattr(self, 'train_summary_op'):
                 ops.append(self.train_summary_op)
-                _, step, loss, sentiment, summaries = sess.run(ops,
-                    feed_dict)
+                _, step, loss, out, accuracy, summaries = sess.run(ops,
+                                                                   feed_dict)
                 self.train_summary_writer.add_summary(summaries, step)
             else:
-                _, step, loss, sentiment = sess.run(ops, feed_dict)
-
-            pco = pearsonr(sentiment, sent_batch)
-            mse = mean_squared_error(sent_batch, sentiment)
+                _, step, loss, out, accuracy = sess.run(ops, feed_dict)
 
             if verbose:
                 time_str = datetime.datetime.now().isoformat()
-                print("Epoch: {}\tTRAIN {}: Current Step: {}\tLoss: {:g}\t"
-                      "PCO: {}\tMSE: {}".format(epochs_completed,
-                        time_str, step, loss, pco, mse))
-            return pco, mse, loss, step
+                print("Epoch: {}\tTRAIN: {}\tCurrent Step: {}\tLoss {:g}\t"
+                      "Accuracy: {}".format(epochs_completed,
+                        time_str, step, out, accuracy))
+            return accuracy, loss, step
 
-    def evaluate_step(self, sess, text_batch, sent_batch, verbose=True):
+    def evaluate_step(self, sess, text_batch, sentiment_batch, verbose=True):
         """
         A single evaluation step
         """
         feed_dict = {
-            self.input: text_batch,
-            self.sentiment: sent_batch
+            self.sentence: text_batch,
+            self.sentiment: sentiment_batch
         }
-        ops = [self.global_step, self.loss, self.out, self.pco,
-               self.pco_update, self.mse, self.mse_update]
+        ops = [self.global_step, self.loss, self.out,
+               self.accuracy, self.correct_preds]
         if hasattr(self, 'dev_summary_op'):
             ops.append(self.dev_summary_op)
-            step, loss, sentiment, pco, _, mse, _, summaries = sess.run(ops,
-                                                                  feed_dict)
+            step, loss, out, accuracy, correct_preds, summaries = sess.run(
+                                                                ops, feed_dict)
             self.dev_summary_writer.add_summary(summaries, step)
         else:
-            step, loss, sentiment, pco, _, mse, _ = sess.run(ops, feed_dict)
+            step, loss, out, accuracy, correct_preds = sess.run(ops, feed_dict)
 
         time_str = datetime.datetime.now().isoformat()
-        pco = pearsonr(sentiment, sent_batch)
-        mse = mean_squared_error(sent_batch, sentiment)
         if verbose:
-            print("EVAL: {}\tstep: {}\tloss: {:g}\t pco:{}\tmse: {}".format(time_str,
-                                                        step, loss, pco, mse))
-        return loss, pco, mse, sentiment
+            print("EVAL: {}\tStep: {}\tloss: {:g}\t accuracy:{}".format(
+                    time_str, step, loss, accuracy))
+        return loss, accuracy, correct_preds, out
+
