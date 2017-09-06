@@ -13,7 +13,7 @@ from tflearn.layers.core import fully_connected
 from tensorflow.contrib.tensorboard.plugins import projector
 
 
-class SentenceSentimentPredictor:
+class SentenceSentimentClassifier:
     """
     A LSTM network for predicting the Sentiment of a sentence.
     """
