@@ -183,7 +183,7 @@ class SentenceSentimentPredictor:
                                        layers=self.args["rnn_layers"],
                                        dynamic=False,
                                        bidirectional=self.args["bidirectional"])
-            self.out = fully_connected(self.lstm_out, 1)
+            self.out = tf.squeeze(fully_connected(self.lstm_out, 1, activation='sigmoid'))
 
         with tf.name_scope("loss"):
             self.loss = losses.mean_squared_error(self.sentiment, self.out)
@@ -223,8 +223,8 @@ class SentenceSentimentPredictor:
 
             if verbose:
                 time_str = datetime.datetime.now().isoformat()
-                print("Epoch: {}\tTRAIN {}: Current Step{}\tLoss{:g}\t"
-                      "PCO:{}\tMSE={}".format(epochs_completed,
+                print("Epoch: {}\tTRAIN {}: Current Step: {}\tLoss: {:g}\t"
+                      "PCO: {}\tMSE: {}".format(epochs_completed,
                         time_str, step, loss, pco, mse))
             return pco, mse, loss, step
 
@@ -250,6 +250,6 @@ class SentenceSentimentPredictor:
         pco = pearsonr(sentiment, sent_batch)
         mse = mean_squared_error(sent_batch, sentiment)
         if verbose:
-            print("EVAL{}:step{}\tloss{:g}\t pco:{}\tmse:{}".format(time_str,
+            print("EVAL: {}\tstep: {}\tloss: {:g}\t pco:{}\tmse: {}".format(time_str,
                                                         step, loss, pco, mse))
         return loss, pco, mse, sentiment

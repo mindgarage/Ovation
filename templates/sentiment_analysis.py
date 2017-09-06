@@ -14,7 +14,6 @@ from datasets import AmazonReviewsGerman
 from datasets import id2seq
 from pyqt_fit import npr_methods
 from models import SentenceSentimentPredictor
-from templates import sts_cnn_blstm
 
 # Model Parameters
 tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character "
@@ -107,7 +106,7 @@ def train(dataset, metadata_path, w2v):
         tflearn.is_training(True, session=sess)
         while dataset.train.epochs_completed < FLAGS.num_epochs:
             train_batch = dataset.train.next_batch(batch_size=FLAGS.batch_size,
-                                   pad=spr_model.args["sequence_length"])
+                               rescale=[0.0, 1.0], pad=spr_model.args["sequence_length"])
             pco, mse, loss, step = spr_model.train_step(sess,
                                                  train_batch.text,
                                                  train_batch.ratings,
@@ -119,7 +118,7 @@ def train(dataset, metadata_path, w2v):
                          max_dev_itr=FLAGS.max_dev_itr, mode='val', step=step)
 
             if step % FLAGS.checkpoint_every == 0:
-                min_validation_loss = sts_cnn_blstm.maybe_save_checkpoint(sess,
+                min_validation_loss = maybe_save_checkpoint(sess,
                     min_validation_loss, avg_val_loss, step, spr_model)
 
             if dataset.train.epochs_completed != prev_epoch:
@@ -127,13 +126,23 @@ def train(dataset, metadata_path, w2v):
                 avg_test_loss, avg_test_pco, _ = evaluate(
                             sess=sess, dataset=dataset.test, model=spr_model,
                             max_dev_itr=0, mode='test', step=step)
-                min_validation_loss = sts_cnn_blstm.maybe_save_checkpoint(sess,
+                min_validation_loss = maybe_save_checkpoint(sess,
                             min_validation_loss, avg_val_loss, step, spr_model)
 
         dataset.train.close()
         dataset.validation.close()
         dataset.test.close()
 
+def maybe_save_checkpoint(sess, min_validation_loss, val_loss, step, model):
+    if val_loss <= min_validation_loss:
+        model.saver.save(sess, model.checkpoint_prefix, global_step=step)
+        tf.train.write_graph(sess.graph.as_graph_def(), model.checkpoint_prefix,
+                             "graph" + str(step) + ".pb", as_text=False)
+        print("Saved model {} with avg_mse={} checkpoint"
+              " to {}\n".format(step, min_validation_loss,
+                                model.checkpoint_prefix))
+        return val_loss
+    return min_validation_loss
 
 def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
              mode='val'):
@@ -156,7 +165,7 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
     dev_itr = 0
     while (dev_itr < max_dev_itr and max_dev_itr != 0) \
             or mode in ['test', 'train']:
-        val_batch = dataset.next_batch(FLAGS.batch_size,
+        val_batch = dataset.next_batch(FLAGS.batch_size, rescale=[0.0, 1.0],
                                        pad=model.args["sequence_length"])
         val_loss, val_pco, val_mse, val_ratings = \
             model.evaluate_step(sess, val_batch.text, val_batch.ratings)
@@ -184,6 +193,8 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
                 avg_pco, avg_loss))
     tflearn.is_training(True, session=sess)
     return avg_loss, avg_pco, result_set
+
+
 
 
 def test(dataset, metadata_path, w2v, rescale=None):
@@ -256,7 +267,7 @@ def results(dataset, metadata_path, w2v, rescale=None):
         plt.xlabel('Predicted  Similarities')
 
         print("Performing Non Parametric Regression")
-        non_param_reg = sts_cnn_blstm.non_parametric_regression(train_ratings,
+        non_param_reg = non_parametric_regression(train_ratings,
                                 train_gt,method=npr_methods.SpatialAverage())
 
         reg_test_sim = non_param_reg(test_ratings)
@@ -281,6 +292,10 @@ def results(dataset, metadata_path, w2v, rescale=None):
         print("saved similarity plot at {}".format(figure_path))
         print("saved regression plot at {}".format(reg_fig_path))
 
+def non_parametric_regression(xs, ys, method):
+    reg = smooth.NonParamRegression(xs, ys, method=method)
+    reg.fit()
+    return reg
 
 if __name__ == '__main__':
     ard = AmazonReviewsGerman()
