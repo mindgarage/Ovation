@@ -58,7 +58,7 @@ tf.flags.DEFINE_string("dataset", "sts", "name of the dataset")
 tf.flags.DEFINE_string("data_dir", "/tmp", "path to the root of the data "
                                            "directory")
 tf.flags.DEFINE_string("experiment_name", "STS_CNN_LSTM", "Name of your model")
-tf.flags.DEFINE_string("mode", "train", "'train' or 'test or phase2'")
+tf.flags.DEFINE_string("mode", "train", "'train' or 'test or results'")
 
 
 FLAGS = tf.flags.FLAGS
@@ -102,7 +102,7 @@ def train(dataset, metadata_path, w2v):
         avg_val_loss = 0.0
         prev_epoch = 0
         tflearn.is_training(True, session=sess)
-        while dataset.train.epochs_completed <= FLAGS.num_epochs:
+        while dataset.train.epochs_completed < FLAGS.num_epochs:
             train_batch = dataset.train.next_batch(batch_size=FLAGS.batch_size,
                                    pad=siamese_model.args["sequence_length"])
             pco, mse, loss, step =  siamese_model.train_step(sess,
@@ -145,21 +145,19 @@ def maybe_save_checkpoint(sess, min_validation_loss, val_loss, step, model):
               " to {}\n".format(step, min_validation_loss,
                                 model.checkpoint_prefix))
         return val_loss
+    return min_validation_loss
 
 
 def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
              mode='val'):
 
     samples_path, history_path = None, None
-    if mode == 'val':
-        samples_path = os.path.join(model.val_results_dir,
-                                    'val_samples_{}.txt'.format(step))
-        history_path = os.path.join(model.val_results_dir, 'val_history.txt')
-    else:
-        samples_path = os.path.join(model.test_results_dir,
-                                    '{}_samples_{}.txt'.format(mode, step))
-        history_path = os.path.join(model.test_results_dir,
-                                    '{}_history.txt'.format(mode))
+    results_dir = model.val_results_dir if mode == 'val'\
+                                        else model.test_results_dir
+    samples_path = os.path.join(results_dir,
+                                '{}_samples_{}.txt'.format(mode, step))
+    history_path = os.path.join(results_dir,
+                                '{}_history.txt'.format(mode))
 
     avg_val_loss, avg_val_pco = 0.0, 0.0
     print("Running Evaluation {}:".format(mode))
@@ -170,7 +168,8 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
     sess.run(tf.local_variables_initializer())
     all_dev_x1, all_dev_x2, all_dev_sims, all_dev_gt = [], [], [], []
     dev_itr = 0
-    while (dev_itr < max_dev_itr and max_dev_itr != 0) or mode == 'test' or mode == 'train':
+    while (dev_itr < max_dev_itr and max_dev_itr != 0) \
+                                    or mode in ['test', 'train']:
         val_batch = dataset.next_batch(FLAGS.batch_size,
                                        pad=model.args["sequence_length"])
         val_loss, val_pco, val_mse, val_sim = \
@@ -193,7 +192,8 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
         print("{}:\t Loss: {}\tPco{}".format(mode, avg_loss, avg_pco))
 
     with open(samples_path, 'w') as sf, open(history_path, 'a') as hf:
-        for x1, x2, sim, gt in zip(all_dev_x1, all_dev_x2, all_dev_sims, all_dev_gt):
+        for x1, x2, sim, gt in zip(all_dev_x1, all_dev_x2,
+                                   all_dev_sims, all_dev_gt):
             sf.write('{}\t{}\t{}\t{}\n'.format(x1, x2, sim, gt))
         hf.write('STEP:{}\tTIME:{}\tPCO:{}\tMSE\t{}\n'.format(
             step, datetime.datetime.now().isoformat(),
@@ -220,7 +220,8 @@ def test(dataset, metadata_path, w2v, rescale=None):
             gt = datasets.rescale(gt, new_range=rescale,
                                   original_range=[0.0, 1.0])
 
-        figure_path = os.path.join(siamese_model.exp_dir, 'test_no_regression_sim.jpg')
+        figure_path = os.path.join(siamese_model.exp_dir,
+                                                'test_no_regression_sim.jpg')
         plt.ylabel('Ground Truth Similarities')
         plt.xlabel('Predicted  Similarities')
         plt.scatter(sims, gt, label="Similarity", s=0.2)
@@ -235,19 +236,22 @@ def results(dataset, metadata_path, w2v, rescale=None):
         dataset.test.open()
         dataset.train.open()
         avg_test_loss, avg_test_pco, test_result_set = evaluate(sess=sess,
-                                               dataset=dataset.test,
-                                               model=siamese_model, step=-1,
-                                               max_dev_itr=0, mode='test')
+                                                        dataset=dataset.test,
+                                                        model=siamese_model,
+                                                        step=-1,
+                                                        max_dev_itr=0,
+                                                        mode='test')
         avg_train_loss, avg_train_pco, train_result_set = evaluate(sess=sess,
-                                                    dataset=dataset.train,
-                                                    model=siamese_model,
-                                                    max_dev_itr=0, step=-1,
-                                                    mode='train')
+                                                       dataset=dataset.train,
+                                                       model=siamese_model,
+                                                       max_dev_itr=0,
+                                                       step=-1,
+                                                       mode='train')
         dataset.test.close()
         dataset.train.close()
         print('TEST RESULTS:\nMSE: {}\t Pearson Correlation: {}\n\n'
               'TRAIN RESULTS:\nMSE: {}\t Pearson Correlation: {}'.format(
-            avg_test_loss, avg_test_pco, avg_train_loss, avg_train_pco
+                avg_test_loss, avg_test_pco, avg_train_loss, avg_train_pco
         ))
 
         _, _, train_sims, train_gt = train_result_set
@@ -256,36 +260,44 @@ def results(dataset, metadata_path, w2v, rescale=None):
 
         if rescale is not None:
             train_gt = datasets.rescale(train_gt, new_range=rescale,
-                                  original_range=[0.0, 1.0])
-            test_gt = datasets.rescale(test_gt, new_range=rescale,
                                         original_range=[0.0, 1.0])
-            grid = np.r_[rescale[0]:rescale[1]:1000j]
+            test_gt = datasets.rescale(test_gt, new_range=rescale,
+                                       original_range=[0.0, 1.0])
+            # grid = np.r_[rescale[0]:rescale[1]:1000j]
 
-        figure_path = os.path.join(siamese_model.exp_dir, 'results_regression_sim.jpg')
+        figure_path = os.path.join(siamese_model.exp_dir,
+                                   'results_test_sim.jpg')
+        reg_fig_path = os.path.join(siamese_model.exp_dir,
+                                    'results_line_fit.jpg')
         plt.title('Regression Plot for Test Set Similarities')
         plt.ylabel('Ground Truth Similarities')
         plt.xlabel('Predicted  Similarities')
-        
+
         print("Performing Non Parametric Regression")
         non_param_reg = non_parametric_regression(train_sims, train_gt,
-                                  method=npr_methods.LocalPolynomialKernel())
+                                          method=npr_methods.SpatialAverage())
 
-        print("Performing Local Linear Regression")
-        loc_lin_reg = non_parametric_regression(non_param_reg(train_sims),
-                     train_gt, npr_methods.LocalLinearKernel1D())
-        reg_test_sim = loc_lin_reg(test_sims)
+        reg_test_sim = non_param_reg(test_sims)
         reg_pco = pearsonr(reg_test_sim, test_gt)
         reg_mse = mean_squared_error(test_gt, reg_test_sim)
-        print("Post Regression Test Results:\nPCO: {}\nMSE: {}".format(reg_pco, reg_mse))
+        print("Post Regression Test Results:\nPCO: {}\nMSE: {}".format(reg_pco,
+                                                                       reg_mse))
 
-        plt.plot(reg_test_sim, test_gt, alpha=0.5, label='Similarities',
-                         markersize=2.5)
-        plt.plot(grid, non_param_reg(grid), label="Local Polynomial Smoothing",
-                 linewidth=2)
-        plt.plot(grid, loc_lin_reg(grid), label="Local Linear Smoothing",
-                 linewidth=2)
+        plt.scatter(reg_test_sim, test_gt, label='Similarities', s=0.2)
         plt.savefig(figure_path)
+
+        plt.clf()
+
+        plt.title('Regression Plot for Test Set Similarities')
+        plt.ylabel('Ground Truth Similarities')
+        plt.xlabel('Predicted  Similarities')
+        plt.scatter(test_sims, test_gt, label='Similarities', s=0.2)
+        plt.plot(grid, non_param_reg(grid), label="Local Linear Smoothing",
+                 linewidth=2.0, color='r')
+        plt.savefig(reg_fig_path)
+
         print("saved similarity plot at {}".format(figure_path))
+        print("saved regression plot at {}".format(reg_fig_path))
 
 
 def non_parametric_regression(xs, ys, method):
@@ -296,10 +308,10 @@ def non_parametric_regression(xs, ys, method):
 
 if __name__ == '__main__':
     sts = STS()
-    sts.create_vocabulary(name="dash_sts")
+    #sts.create_vocabulary(name="my_sts")
     if FLAGS.mode == 'train':
-        train(sts)
+        train(sts, sts.metadata_path, sts.w2v)
     elif FLAGS.mode == 'test':
-        test(sts, rescale=[0.0, 5.0])
+        test(sts, sts.metadata_path, sts.w2v)
     elif FLAGS.mode == 'results':
-        results(sts, rescale=[0.0, 5.0])
+        results(sts, sts.metadata_path, sts.w2v)

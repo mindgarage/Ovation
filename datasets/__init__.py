@@ -366,6 +366,6 @@ from .stack_exchange import StackExchange
 from .sem_eval import SemEval
 from .sick import Sick
 from .hotel_reviews import HotelReviews
-from .amazon_reviews import AmazonReviews
+from .amazon_reviews_german import AmazonReviewsGerman
 #from gersen import Gersen
 

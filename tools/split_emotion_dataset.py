@@ -35,10 +35,10 @@ for train_index, test_index in skf.split(X, Y):
                       [Y[id] for id in test_index]
     skf_1 = StratifiedKFold(n_splits=2, random_state=None, shuffle=True)
     for tr_index, val_index in skf.split(X_train, y_train):
-        X_train, X_val = [X[id] for id in train_index], \
-                          [X[id] for id in test_index]
-        y_train, y_val = [Y[id] for id in train_index], \
-                          [Y[id] for id in test_index]
+        X_train, X_val = [X_train[id] for id in tr_index], \
+                          [X_train[id] for id in val_index]
+        y_train, y_val = [y_train[id] for id in tr_index], \
+                          [y_train[id] for id in val_index]
         folds.append((("train", X_train, y_train), ("val", X_val, y_val),
                       ("test", X_test, y_test)))
         break

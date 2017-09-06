@@ -76,8 +76,9 @@ if __name__ == '__main__':
     sick.validation.set_vocab((sts.w2i, sts.i2w))
 
     if FLAGS.mode == 'train':
-        train(sick, sts.metadata_path, sts.w2v)
+        sts_cnn_blstm.train(sick, sts.metadata_path, sts.w2v)
     elif FLAGS.mode == 'test':
-        test(sick, sts.metadata_path, sts.w2v, rescale=[1.0, 5.0])
+        sts_cnn_blstm.test(sick, sts.metadata_path, sts.w2v, rescale=[1.0, 5.0])
     elif FLAGS.mode == 'results':
-        results(sick, sts.metadata_path, sts.w2v, rescale=[1.0, 5.0])
+        sts_cnn_blstm.results(sick, sts.metadata_path, sts.w2v, rescale=[1.0,
+                                                                         5.0])

@@ -200,7 +200,6 @@ class SentenceSentimentPredictor:
             self.mse, self.mse_update = tf.metrics.mean_squared_error(
                     self.sentiment, self.out,  name="mse")
 
-
     def train_step(self, sess, text_batch, sent_batch,
                    epochs_completed, verbose=True):
             """

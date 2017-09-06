@@ -5,7 +5,8 @@ import collections
 
 from tflearn.data_utils import to_categorical
 
-class AmazonReviews(object):
+
+class AmazonReviewsGerman(object):
     def __init__(self, train_validation_split=None, test_split=None,
                  use_defaults=True):
         if train_validation_split is not None or test_split is not None or \
