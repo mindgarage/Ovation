@@ -257,7 +257,7 @@ class SiameseCNNLSTM(object):
         }
         ops = [self.global_step, self.loss, self.distance, self.pco,
                self.pco_update, self.mse, self.mse_update]
-        if hasattr(self, 'self.dev_summary_op'):
+        if hasattr(self, 'dev_summary_op'):
             ops.append(self.dev_summary_op)
             step, loss, sim, pco, _, mse, _, summaries = sess.run(ops,
                                                                   feed_dict)

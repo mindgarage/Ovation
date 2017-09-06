@@ -238,7 +238,7 @@ class SentenceSentimentPredictor:
         }
         ops = [self.global_step, self.loss, self.out, self.pco,
                self.pco_update, self.mse, self.mse_update]
-        if hasattr(self, 'self.dev_summary_op'):
+        if hasattr(self, 'dev_summary_op'):
             ops.append(self.dev_summary_op)
             step, loss, sentiment, pco, _, mse, _, summaries = sess.run(ops,
                                                                   feed_dict)
