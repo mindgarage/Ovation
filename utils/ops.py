@@ -98,7 +98,7 @@ def embedding_layer(metadata_path=None, embedding_weights=None,
         w2v_init = tf.constant(embedding_weights, dtype=tf.float32)
         W = tf.Variable(w2v_init, trainable=trainable, name="W_embedding")
     else:
-        W = tf.get_variable("word_embeddings", [vocab_size, embedding_shape],
+        W = tf.get_variable("W_embedding", [vocab_size, embedding_shape],
                         trainable=trainable)
 
     config = projector.ProjectorConfig()

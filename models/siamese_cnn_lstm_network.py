@@ -269,7 +269,8 @@ class SiameseCNNLSTM(object):
         pco = pearsonr(sim, sim_batch)
         mse = mean_squared_error(sim_batch, sim)
         if verbose:
-            print("EVAL{}:step{}\tloss{:g}\t pco:{}\tmse:{}".format(time_str,
+            print("EVAL: {}\tStep: {}\tloss: {:g}\t pco:{}\tmse:{}".format(
+                    time_str,
                                                         step, loss, pco, mse))
         return loss, pco, mse, sim
 
