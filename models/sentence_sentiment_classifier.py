@@ -33,7 +33,7 @@ class SentenceSentimentClassifier:
         self.sentence = tf.placeholder(tf.int32,
                                 [None, self.args.get("sequence_length")],
                                 name="sentence")
-        self.sentiment = tf.placeholder(tf.float32, [None], name="sentiment")
+        self.sentiment = tf.placeholder(tf.float32, [None, 5], name="sentiment")
 
     def create_optimizer(self):
         self.optimizer = ops.get_optimizer(self.args["optimizer"]) \
@@ -106,9 +106,9 @@ class SentenceSentimentClassifier:
                 self.loss = tf.reduce_mean(self.loss + self.regularizer)
 
         #### Evaluation Measures.
-        with tf.name_scope("Accuracy"):
-            self.correct_preds = tf.equal(tf.argmax(self.out),
-                                          tf.argmax(self.sentiment))
+        with tf.name_scope("Graph_Accuracy"):
+            self.correct_preds = tf.equal(tf.argmax(self.out, 1),
+                                          tf.argmax(self.sentiment, 1))
             self.accuracy = tf.reduce_mean(
                                 tf.cast(self.correct_preds, tf.float32),
                                 name="accuracy")
@@ -127,11 +127,11 @@ class SentenceSentimentClassifier:
     def create_scalar_summary(self, sess):
         # Summaries for loss and accuracy
         self.loss_summary = tf.summary.scalar("loss", self.loss)
-        self.accuracy = tf.summary.scalar("accuracy", self.accuracy)
+        self.accuracy_summary = tf.summary.scalar("accuracy", self.accuracy)
 
         # Train Summaries
         self.train_summary_op = tf.summary.merge([self.loss_summary,
-                                                  self.accuracy])
+                                                  self.accuracy_summary])
 
         self.train_summary_writer = tf.summary.FileWriter(self.checkpoint_dir,
                                                      sess.graph)
@@ -140,7 +140,7 @@ class SentenceSentimentClassifier:
 
         # Dev summaries
         self.dev_summary_op = tf.summary.merge([self.loss_summary,
-                                                self.accuracy])
+                                                self.accuracy_summary])
 
         self.dev_summary_writer = tf.summary.FileWriter(self.dev_summary_dir,
                                                    sess.graph)
@@ -216,9 +216,9 @@ class SentenceSentimentClassifier:
 
             if verbose:
                 time_str = datetime.datetime.now().isoformat()
-                print("Epoch: {}\tTRAIN: {}\tCurrent Step: {}\tLoss {:g}\t"
-                      "Accuracy: {}".format(epochs_completed,
-                        time_str, step, out, accuracy))
+                print(("Epoch: {}\tTRAIN: {}\tCurrent Step: {}\tLoss {}\t"
+                      "Accuracy: {}").format(epochs_completed,
+                        time_str, step, loss, accuracy))
             return accuracy, loss, step
 
     def evaluate_step(self, sess, text_batch, sentiment_batch, verbose=True):

@@ -40,9 +40,9 @@ tf.flags.DEFINE_integer("max_checkpoints", 100, "Maximum number of "
 tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 300, "Number of training epochs"
                                            " (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 1000, "Evaluate model on dev set "
+tf.flags.DEFINE_integer("evaluate_every", 200, "Evaluate model on dev set "
                                     "after this many steps (default: 100)")
-tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many"
+tf.flags.DEFINE_integer("checkpoint_every", 200, "Save model after this many"
                                                   " steps (default: 100)")
 tf.flags.DEFINE_integer("max_dev_itr", 100, "max munber of dev iterations "
                               "to take for in-training evaluation")
@@ -118,7 +118,7 @@ def train(dataset, metadata_path, w2v):
         tflearn.is_training(True, session=sess)
         while dataset.train.epochs_completed < FLAGS.num_epochs:
             train_batch = dataset.train.next_batch(batch_size=FLAGS.batch_size,
-                                   pad=model.args["sequence_length"])
+                                   pad=model.args["sequence_length"], one_hot=True)
             accuracy, loss, step =  model.train_step(sess,
                                                  train_batch.text,
                                                  train_batch.ratings,
@@ -169,15 +169,15 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
     dev_itr = 0
     while (dev_itr < max_dev_itr and max_dev_itr != 0) \
                                     or mode in ['test', 'train']:
-        val_batch = dataset.next_batch(FLAGS.batch_size,
+        val_batch = dataset.next_batch(FLAGS.batch_size, one_hot=True,
                                        pad=model.args["sequence_length"])
         val_loss, val_accuracy, val_correct_preds, val_ratings = \
-            model.evaluate_step(sess, val_batch.s1, val_batch.s2, val_batch.sim)
+            model.evaluate_step(sess, val_batch.text, val_batch.ratings)
         avg_val_loss += val_loss
-        sum_accuracy += val_correct_preds
+        sum_accuracy += np.sum(val_correct_preds)
         all_dev_sentence += id2seq(val_batch.text, dataset.vocab_i2w)
         all_dev_score += val_ratings.tolist()
-        all_dev_gt += val_batch.sim
+        all_dev_gt += val_batch.ratings.tolist()
         dev_itr += 1
 
         if mode == 'test' and dataset.epochs_completed == 1: break
@@ -185,7 +185,7 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
 
     result_set = (all_dev_sentence, all_dev_score, all_dev_gt)
     avg_loss = avg_val_loss / dev_itr
-    avg_accuracy = sum_accuracy / dev_itr
+    avg_accuracy = sum_accuracy / (dev_itr * FLAGS.batch_size)
     if verbose:
         print("{}:\t Loss: {}\tAccuracy: {}".format(mode, avg_loss,
                                                     avg_accuracy))
