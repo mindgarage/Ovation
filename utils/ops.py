@@ -83,7 +83,8 @@ def lstm_block(input, hidden_units=128, dropout=0.5, reuse=False, layers=1,
 
 
 def embedding_layer(metadata_path=None, embedding_weights=None,
-                    trainable=True, vocab_size=None, embedding_shape=300):
+                    name='W_embedding', trainable=True, vocab_size=None,
+                    embedding_shape=300):
     """
     vocab_size and embedding_size are required if embedding weights are not provided
     :param metadata_path:
@@ -96,9 +97,9 @@ def embedding_layer(metadata_path=None, embedding_weights=None,
     W = None
     if embedding_weights is not None:
         w2v_init = tf.constant(embedding_weights, dtype=tf.float32)
-        W = tf.Variable(w2v_init, trainable=trainable, name="W_embedding")
+        W = tf.Variable(w2v_init, trainable=trainable, name=name)
     else:
-        W = tf.get_variable("W_embedding", [vocab_size, embedding_shape],
+        W = tf.get_variable(name, [vocab_size, embedding_shape],
                         trainable=trainable)
 
     config = projector.ProjectorConfig()
