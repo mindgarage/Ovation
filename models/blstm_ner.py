@@ -2,6 +2,7 @@ import os
 import pickle
 import datetime
 
+import numpy as np
 import tensorflow as tf
 
 from utils import ops
@@ -15,7 +16,7 @@ from tensorflow.contrib.tensorboard.plugins import projector
 
 class BLSTMNER:
     """
-    A LSTM network for predicting the Sentiment of a sentence.
+    A LSTM network for generating Named Entities given an input Sentence.
     """
     def __init__(self, train_options):
         self.args = train_options
@@ -34,7 +35,7 @@ class BLSTMNER:
                                  [None, self.args.get("sequence_length")])
         self.output = tf.placeholder(tf.float32,
                                       [None, self.args.get("sequence_length"),
-                                       self.args.class_size])
+                                       self.args.n_classes])
 
     def create_optimizer(self):
         self.optimizer = ops.get_optimizer(self.args["optimizer"]) \
@@ -80,38 +81,59 @@ class BLSTMNER:
             print('Could not find training options so using currently given '
                   'values.')
 
+    def weight_and_bias(self, in_size, out_size):
+        weight = tf.truncated_normal([in_size, out_size], stddev=0.01)
+        bias = tf.constant(0.1, shape=[out_size])
+        return tf.Variable(weight), tf.Variable(bias)
+
+    def cost(self):
+        cross_entropy = self.output * tf.log(self.prediction)
+        cross_entropy = -tf.reduce_sum(cross_entropy, reduction_indices=2)
+        mask = tf.sign(
+            tf.reduce_max(tf.abs(self.output), reduction_indices=2))
+        cross_entropy *= mask
+        cross_entropy = tf.reduce_sum(cross_entropy, reduction_indices=1)
+        cross_entropy /= tf.cast(self.length, tf.float32)
+        return tf.reduce_mean(cross_entropy)
+
     def build_model(self, metadata_path=None, embedding_weights=None):
         self.embedding_weights, self.config = ops.embedding_layer(
                                         metadata_path, embedding_weights)
         self.embedded_input = tf.nn.embedding_lookup(self.embedding_weights,
                                                      self.input)
 
-
-        self.cnn_out = ops.multi_filter_conv_block(self.embedded_text,
-                                    self.args["n_filters"],
-                                    dropout_keep_prob=self.args["dropout"])
-        self.lstm_out = ops.lstm_block(self.cnn_out,
-                                   self.args["hidden_units"],
-                                   dropout=self.args["dropout"],
-                                   layers=self.args["rnn_layers"],
-                                   dynamic=False,
-                                   bidirectional=self.args["bidirectional"])
-        self.out = fully_connected(self.lstm_out, 5)
-
+        fw_cell = tf.nn.rnn_cell.LSTMCell(self.args.rnn_size,
+                                          state_is_tuple=True)
+        fw_cell = tf.nn.rnn_cell.DropoutWrapper(fw_cell,
+                                            output_keep_prob=self.args.dropout)
+        bw_cell = tf.nn.rnn_cell.LSTMCell(self.args.hidden_units,
+                                          state_is_tuple=True)
+        bw_cell = tf.nn.rnn_cell.DropoutWrapper(bw_cell,
+                                            output_keep_prob=self.args.dropout)
+        fw_cell = tf.nn.rnn_cell.MultiRNNCell([fw_cell] * self.args.rnn_layers,
+                                              state_is_tuple=True)
+        bw_cell = tf.nn.rnn_cell.MultiRNNCell([bw_cell] * self.args.rnn_layers,
+                                              state_is_tuple=True)
+        words_used_in_sent = tf.sign(
+            tf.reduce_max(tf.abs(self.input), reduction_indices=2))
+        self.length = tf.cast(tf.reduce_sum(words_used_in_sent,
+                                            reduction_indices=1), tf.int32)
+        output, _, _ = tf.nn.bidirectional_rnn(fw_cell, bw_cell,
+                   tf.unpack(tf.transpose(self.embedded_input, perm=[1, 0, 2])),
+                       dtype=tf.float32, sequence_length=self.length)
+        weight, bias = self.weight_and_bias(2 * self.args.hidden_units,
+                                            self.args.n_classes)
+        self.output = tf.reshape(tf.transpose(tf.pack(output), perm=[1, 0, 2]),
+                                            [-1, 2 * self.args.hidden_units])
+        prediction = tf.nn.softmax(tf.matmul(output, weight) + bias)
+        self.prediction = tf.reshape(prediction, [-1, self.args.sentence_length,
+                                                  self.args.n_classes])
         with tf.name_scope("loss"):
-            self.loss = losses.categorical_cross_entropy(self.sentiment, self.out)
+            self.loss = self.cost()
 
             if self.args["l2_reg_beta"] > 0.0:
                 self.regularizer = ops.get_regularizer(self.args["l2_reg_beta"])
                 self.loss = tf.reduce_mean(self.loss + self.regularizer)
-
-        #### Evaluation Measures.
-        with tf.name_scope("Graph_Accuracy"):
-            self.correct_preds = tf.equal(tf.argmax(self.out, 1),
-                                          tf.argmax(self.sentiment, 1))
-            self.accuracy = tf.reduce_mean(
-                                tf.cast(self.correct_preds, tf.float32),
-                                name="accuracy")
 
     def create_histogram_summary(self):
         grad_summaries = []
@@ -127,11 +149,9 @@ class BLSTMNER:
     def create_scalar_summary(self, sess):
         # Summaries for loss and accuracy
         self.loss_summary = tf.summary.scalar("loss", self.loss)
-        self.accuracy_summary = tf.summary.scalar("accuracy", self.accuracy)
 
         # Train Summaries
-        self.train_summary_op = tf.summary.merge([self.loss_summary,
-                                                  self.accuracy_summary])
+        self.train_summary_op = tf.summary.merge([self.loss_summary])
 
         self.train_summary_writer = tf.summary.FileWriter(self.checkpoint_dir,
                                                      sess.graph)
@@ -139,8 +159,7 @@ class BLSTMNER:
                                        self.config)
 
         # Dev summaries
-        self.dev_summary_op = tf.summary.merge([self.loss_summary,
-                                                self.accuracy_summary])
+        self.dev_summary_op = tf.summary.merge([self.loss_summary])
 
         self.dev_summary_writer = tf.summary.FileWriter(self.dev_summary_dir,
                                                    sess.graph)
@@ -195,53 +214,83 @@ class BLSTMNER:
         print('Loading Saved Model')
         self.load_saved_model(sess)
 
-    def train_step(self, sess, text_batch, sentiment_batch,
-                   epochs_completed, verbose=True):
+    def train_step(self, sess, text_batch, ne_batch, epochs_completed,
+                   verbose=True):
             """
             A single train step
             """
             feed_dict = {
-                self.sentence: text_batch,
-                self.sentiment: sentiment_batch,
+                self.input: text_batch,
+                self.output: ne_batch,
             }
             ops = [self.tr_op_set, self.global_step,
-                   self.loss, self.out, self.accuracy]
+                   self.loss, self.prediction, self.length]
             if hasattr(self, 'train_summary_op'):
                 ops.append(self.train_summary_op)
-                _, step, loss, out, accuracy, summaries = sess.run(ops,
+                _, step, loss, pred, length, summaries = sess.run(ops,
                                                                    feed_dict)
                 self.train_summary_writer.add_summary(summaries, step)
             else:
-                _, step, loss, out, accuracy = sess.run(ops, feed_dict)
+                _, step, loss, pred ,length = sess.run(ops, feed_dict)
 
+            f1 = self.get_f1_score(pred, ne_batch, length)
             if verbose:
                 time_str = datetime.datetime.now().isoformat()
-                print(("Epoch: {}\tTRAIN: {}\tCurrent Step: {}\tLoss {}\t"
-                      "Accuracy: {}").format(epochs_completed,
-                        time_str, step, loss, accuracy))
-            return accuracy, loss, step
+                print(("Epoch: {}\tTRAIN: {}\tCurrent Step: {}\tLoss {}\tF1: {}"
+                      "").format(epochs_completed, time_str, step, loss, f1))
 
-    def evaluate_step(self, sess, text_batch, sentiment_batch, verbose=True):
+            return pred, length, loss, step, f1
+
+    def evaluate_step(self, sess, text_batch, ne_batch, verbose=True):
         """
         A single evaluation step
         """
         feed_dict = {
-            self.sentence: text_batch,
-            self.sentiment: sentiment_batch
+            self.input: text_batch,
+            self.output: ne_batch
         }
-        ops = [self.global_step, self.loss, self.out,
-               self.accuracy, self.correct_preds]
+        ops = [self.global_step, self.loss, self.prediction, self.length]
         if hasattr(self, 'dev_summary_op'):
             ops.append(self.dev_summary_op)
-            step, loss, out, accuracy, correct_preds, summaries = sess.run(
-                                                                ops, feed_dict)
+            step, loss, pred, length, summaries = sess.run(ops, feed_dict)
             self.dev_summary_writer.add_summary(summaries, step)
         else:
-            step, loss, out, accuracy, correct_preds = sess.run(ops, feed_dict)
+            step, loss, pred, length = sess.run(ops, feed_dict)
 
+        f1 = self.get_f1_score(pred, ne_batch, length)
         time_str = datetime.datetime.now().isoformat()
         if verbose:
-            print("EVAL: {}\tStep: {}\tloss: {:g}\t accuracy:{}".format(
-                    time_str, step, loss, accuracy))
-        return loss, accuracy, correct_preds, out
+            print("EVAL: {}\tStep: {}\tloss: {:g}\tF1: {}".format(
+                    time_str, step, loss, f1))
+        return loss, pred, f1
+
+    def get_f1_score(self, prediction, target, length):
+        tp = np.array([0] * (self.args.n_classes + 1))
+        fp = np.array([0] * (self.args.n_classes + 1))
+        fn = np.array([0] * (self.args.n_classes + 1))
+        target = np.argmax(target, 2)
+        prediction = np.argmax(prediction, 2)
+        for i in range(len(target)):
+            for j in range(length[i]):
+                if target[i, j] == prediction[i, j]:
+                    tp[target[i, j]] += 1
+                else:
+                    fp[target[i, j]] += 1
+                    fn[prediction[i, j]] += 1
+        unnamed_entity = self.args.n_classes - 1
+        for i in range(self.args.n_classes):
+            if i != unnamed_entity:
+                tp[self.args.n_classes] += tp[i]
+                fp[self.args.n_classes] += fp[i]
+                fn[self.args.n_classes] += fn[i]
+        precision = []
+        recall = []
+        fscore = []
+        for i in range(self.args.n_classes + 1):
+            precision.append(tp[i] * 1.0 / (tp[i] + fp[i]))
+            recall.append(tp[i] * 1.0 / (tp[i] + fn[i]))
+            fscore.append(
+                2.0 * precision[i] * recall[i] / (precision[i] + recall[i]))
+        #print(fscore)
+        return fscore[self.args.n_classes]
 

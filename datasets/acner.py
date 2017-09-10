@@ -273,15 +273,13 @@ class DataSet():
         ner = datasets.padseq(datasets.seq2id(ner, self.vocab_w2i[2]), pad)
 
         if one_hot:
-            pos = [to_categorical(p, nb_classes=len(self.vocab_w2i[1]))
-                   for p in pos]
+            #pos = [to_categorical(p, nb_classes=len(self.vocab_w2i[1]))
+            #       for p in pos]
             ner = [to_categorical(n, nb_classes=len(self.vocab_w2i[2]))
                    for n in ner]
 
         batch = self.Batch(
-            sentences=datasets.padseq(datasets.seq2id(sentences, self.vocab_w2i[0]), pad),
-            pos=datasets.padseq(datasets.seq2id(pos, self.vocab_w2i[1]), pad),
-            ner=datasets.padseq(datasets.seq2id(ner, self.vocab_w2i[2]), pad))
+            sentences=sentences, pos=pos, ner=ner)
 
         ret = batch
         if (return_sequence_lengths):
