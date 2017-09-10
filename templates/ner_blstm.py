@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 from datasets import Acner
 from datasets import id2seq
 from models import BLSTMNER
+from datasets import onehot2seq
+
 
 # Model Parameters
 tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character "
@@ -99,14 +101,15 @@ def train(dataset, metadata_path, w2v, n_classes):
         while dataset.train.epochs_completed < FLAGS.num_epochs:
             train_batch = dataset.train.next_batch(batch_size=FLAGS.batch_size,
                         pad=ner_model.args["sequence_length"], one_hot=True)
-            pco, mse, loss, step = ner_model.train_step(sess,
-                                         train_batch.text, train_batch.ratings,
+            pred, length, loss, step, f1 = ner_model.train_step(sess,
+                                         train_batch.sentences, train_batch.ner,
                                             dataset.train.epochs_completed)
 
             if step % FLAGS.evaluate_every == 0:
-                avg_val_loss, avg_val_pco, _ = evaluate(sess=sess,
-                         dataset=dataset.validation, model=ner_model,
-                         max_dev_itr=FLAGS.max_dev_itr, mode='val', step=step)
+                avg_val_loss, avg_val_f1, _ = evaluate(sess=sess,
+                             dataset=dataset.validation, model=ner_model,
+                                max_dev_itr=FLAGS.max_dev_itr, mode='val',
+                                    step=step)
 
             if step % FLAGS.checkpoint_every == 0:
                 min_validation_loss = maybe_save_checkpoint(sess,
@@ -114,11 +117,11 @@ def train(dataset, metadata_path, w2v, n_classes):
 
             if dataset.train.epochs_completed != prev_epoch:
                 prev_epoch = dataset.train.epochs_completed
-                avg_test_loss, avg_test_pco, _ = evaluate(
-                            sess=sess, dataset=dataset.test, model=spr_model,
+                avg_test_loss, avg_test_f1, _ = evaluate(
+                            sess=sess, dataset=dataset.test, model=ner_model,
                             max_dev_itr=0, mode='test', step=step)
                 min_validation_loss = maybe_save_checkpoint(sess,
-                            min_validation_loss, avg_val_loss, step, spr_model)
+                            min_validation_loss, avg_val_loss, step, ner_model)
 
 def maybe_save_checkpoint(sess, min_validation_loss, val_loss, step, model):
     if val_loss <= min_validation_loss:
@@ -131,6 +134,7 @@ def maybe_save_checkpoint(sess, min_validation_loss, val_loss, step, model):
         return val_loss
     return min_validation_loss
 
+
 def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
              mode='val'):
     results_dir = model.val_results_dir if mode == 'val' \
@@ -140,147 +144,57 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
     history_path = os.path.join(results_dir,
                                 '{}_history.txt'.format(mode))
 
-    avg_val_loss, avg_val_pco = 0.0, 0.0
+    avg_val_loss, avg_f1 = 0.0, 0.0
     print("Running Evaluation {}:".format(mode))
     tflearn.is_training(False, session=sess)
 
     # This is needed to reset the local variables initialized by
     # TF for calculating streaming Pearson Correlation and MSE
-    all_dev_review, all_dev_score, all_dev_gt = [], [], []
+    all_dev_text, all_dev_pred, all_dev_gt = [], [], []
     dev_itr = 0
     while (dev_itr < max_dev_itr and max_dev_itr != 0) \
             or mode in ['test', 'train']:
-        val_batch = dataset.next_batch(FLAGS.batch_size, rescale=[0.0, 1.0],
-                                       pad=model.args["sequence_length"])
-        val_loss, val_pco, val_mse, val_ratings = \
-            model.evaluate_step(sess, val_batch.text, val_batch.ratings)
-        avg_val_loss += val_mse
-        avg_val_pco += val_pco[0]
-        all_dev_review += id2seq(val_batch.text, dataset.vocab_i2w)
-        all_dev_score += val_ratings.tolist()
-        all_dev_gt += val_batch.ratings
+        val_batch = dataset.next_batch(FLAGS.batch_size,
+                                       pad=model.args["sequence_length"],
+                                       one_hot=True)
+        loss, pred, f1 = model.evaluate_step(sess, val_batch.sentences,
+                                             val_batch.ner)
+        avg_val_loss += loss
+        avg_f1 += f1
+        all_dev_text += id2seq(val_batch.sentences, dataset.vocab_i2w[0])
+        all_dev_pred += onehot2seq(pred, dataset.vocab_i2w[2])
+        all_dev_gt += onehot2seq(val_batch.ner, dataset.vocab_i2w[2])
         dev_itr += 1
 
         if mode == 'test' and dataset.epochs_completed == 1: break
         if mode == 'train' and dataset.epochs_completed == 1: break
 
-    result_set = (all_dev_review, all_dev_score, all_dev_gt)
+    result_set = (all_dev_text, all_dev_pred, all_dev_gt)
     avg_loss = avg_val_loss / dev_itr
-    avg_pco = avg_val_pco / dev_itr
+    avg_f1 = avg_f1 / dev_itr
     if verbose:
-        print("{}:\t Loss: {}\tPco{}".format(mode, avg_loss, avg_pco))
+        print("{}:\t Loss: {}\tF1{}".format(mode, avg_loss, avg_f1))
 
     with open(samples_path, 'w') as sf, open(history_path, 'a') as hf:
-        for x1, sim, gt in zip(all_dev_review, all_dev_score, all_dev_gt):
-            sf.write('{}\t{}\t{}\n'.format(x1, sim, gt))
-        hf.write('STEP:{}\tTIME:{}\tPCO:{}\tMSE\t{}\n'.format(
+        for x1, pred, gt in zip(all_dev_text, all_dev_pred, all_dev_gt):
+            sf.write('{}\t{}\t{}\n'.format(x1, pred, gt))
+        hf.write('STEP:{}\tTIME:{}\tF1:{}\tLoss\t{}\n'.format(
                 step, datetime.datetime.now().isoformat(),
-                avg_pco, avg_loss))
+                avg_f1, avg_loss))
     tflearn.is_training(True, session=sess)
-    return avg_loss, avg_pco, result_set
+    return avg_loss, avg_f1, result_set
 
 
-
-
-def test(dataset, metadata_path, w2v, rescale=None):
+def test(dataset, metadata_path, w2v, n_classes):
     print("Configuring Tensorflow Graph")
     with tf.Graph().as_default():
-        sess, siamese_model = initialize_tf_graph(metadata_path, w2v)
-        dataset.test.open()
-        avg_test_loss, avg_test_pco, test_result_set = evaluate(sess=sess,
-                                                        dataset=dataset.test,
-                                                        model=siamese_model,
-                                                        max_dev_itr=0,
-                                                        mode='test',
-                                                        step=-1)
-        print('Average Pearson Correlation: {}\nAverage MSE: {}'.format(
-                avg_test_pco, avg_test_loss))
-        dataset.test.close()
-        _, ratings, gt = test_result_set
-        if rescale is not None:
-            gt = datasets.rescale(gt, new_range=rescale,
-                                  original_range=[0.0, 1.0])
-
-        figure_path = os.path.join(siamese_model.exp_dir,
-                                   'test_no_regression_sim.jpg')
-        plt.ylabel('Ground Truth Similarities')
-        plt.xlabel('Predicted  Similarities')
-        plt.scatter(ratings, gt, label="Similarity", s=0.2)
-        plt.savefig(figure_path)
-        print("saved similarity plot at {}".format(figure_path))
-
-
-def results(dataset, metadata_path, w2v, rescale=None):
-    print("Configuring Tensorflow Graph")
-    with tf.Graph().as_default():
-        sess, siamese_model = initialize_tf_graph(metadata_path, w2v)
-        dataset.test.open()
-        dataset.train.open()
-        avg_test_loss, avg_test_pco, test_result_set = evaluate(sess=sess,
+        sess, siamese_model = initialize_tf_graph(metadata_path, w2v, n_classes)
+        avg_test_loss, avg_test_f1, test_result_set = evaluate(sess=sess,
                                     dataset=dataset.test, model=siamese_model,
-                                    step=-1, max_dev_itr=0, mode='test')
-        avg_train_loss, avg_train_pco, train_result_set = evaluate(sess=sess,
-                                                       dataset=dataset.train,
-                                                       model=siamese_model,
-                                                       max_dev_itr=0,
-                                                       step=-1,
-                                                       mode='train')
-        dataset.test.close()
-        dataset.train.close()
-        print('TEST RESULTS:\nMSE: {}\t Pearson Correlation: {}\n\n'
-              'TRAIN RESULTS:\nMSE: {}\t Pearson Correlation: {}'.format(
-                avg_test_loss, avg_test_pco, avg_train_loss, avg_train_pco
-        ))
+                                        max_dev_itr=0, mode='test', step=-1)
+        print('Average F1 score: {}\nAverage Loss: {}'.format(
+                avg_test_f1, avg_test_loss))
 
-        _, train_ratings, train_gt = train_result_set
-        _, test_ratings, test_gt = test_result_set
-        grid = np.r_[0:1:1000j]
-
-        if rescale is not None:
-            train_gt = datasets.rescale(train_gt, new_range=rescale,
-                                        original_range=[0.0, 1.0])
-            test_gt = datasets.rescale(test_gt, new_range=rescale,
-                                       original_range=[0.0, 1.0])
-            # grid = np.r_[rescale[0]:rescale[1]:1000j]
-
-        figure_path = os.path.join(siamese_model.exp_dir,
-                                   'results_test_sim.jpg')
-        reg_fig_path = os.path.join(siamese_model.exp_dir,
-                                    'results_line_fit.jpg')
-        plt.title('Regression Plot for Test Set Similarities')
-        plt.ylabel('Ground Truth Similarities')
-        plt.xlabel('Predicted  Similarities')
-
-        print("Performing Non Parametric Regression")
-        non_param_reg = non_parametric_regression(train_ratings,
-                                train_gt,method=npr_methods.SpatialAverage())
-
-        reg_test_sim = non_param_reg(test_ratings)
-        reg_pco = pearsonr(reg_test_sim, test_gt)
-        reg_mse = mean_squared_error(test_gt, reg_test_sim)
-        print("Post Regression Test Results:\nPCO: {}\nMSE: {}".format(reg_pco,
-                                                                       reg_mse))
-
-        plt.scatter(reg_test_sim, test_gt, label='Similarities', s=0.2)
-        plt.savefig(figure_path)
-
-        plt.clf()
-
-        plt.title('Regression Plot for Test Set Similarities')
-        plt.ylabel('Ground Truth Similarities')
-        plt.xlabel('Predicted  Similarities')
-        plt.scatter(test_ratings, test_gt, label='Similarities', s=0.2)
-        plt.plot(grid, non_param_reg(grid), label="Local Linear Smoothing",
-                 linewidth=2.0, color='r')
-        plt.savefig(reg_fig_path)
-
-        print("saved similarity plot at {}".format(figure_path))
-        print("saved regression plot at {}".format(reg_fig_path))
-
-def non_parametric_regression(xs, ys, method):
-    reg = smooth.NonParamRegression(xs, ys, method=method)
-    reg.fit()
-    return reg
 
 if __name__ == '__main__':
     acner = Acner()
@@ -288,6 +202,6 @@ if __name__ == '__main__':
     if FLAGS.mode == 'train':
         train(acner, acner.metadata_paths[0], acner.w2v[0], len(acner.w2i[2]))
     elif FLAGS.mode == 'test':
-        test(ard, ard.metadata_path, ard.w2v)
-    elif FLAGS.mode == 'results':
-        results(ard, ard.metadata_path, ard.w2v)
+        test(acner, acner.metadata_paths[0], acner.w2v[0], len(acner.w2i[2]))
+    else:
+        raise ValueError('Mode {} is not defined'.format(FLAGS.mode))

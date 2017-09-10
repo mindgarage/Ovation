@@ -2,6 +2,7 @@ import os
 import pickle
 import datetime
 
+import numpy as np
 import tensorflow as tf
 
 from utils import ops
@@ -15,7 +16,7 @@ from tensorflow.contrib.tensorboard.plugins import projector
 
 class BLSTMNER:
     """
-    A LSTM network for predicting the Sentiment of a sentence.
+    A LSTM network for generating Named Entities given an input Sentence.
     """
     def __init__(self, train_options):
         self.args = train_options
@@ -223,20 +224,22 @@ class BLSTMNER:
                 self.output: ne_batch,
             }
             ops = [self.tr_op_set, self.global_step,
-                   self.loss, self.prediction]
+                   self.loss, self.prediction, self.length]
             if hasattr(self, 'train_summary_op'):
                 ops.append(self.train_summary_op)
-                _, step, loss, pred, summaries = sess.run(ops,
+                _, step, loss, pred, length, summaries = sess.run(ops,
                                                                    feed_dict)
                 self.train_summary_writer.add_summary(summaries, step)
             else:
-                _, step, loss, pred = sess.run(ops, feed_dict)
+                _, step, loss, pred ,length = sess.run(ops, feed_dict)
 
+            f1 = self.get_f1_score(pred, ne_batch, length)
             if verbose:
                 time_str = datetime.datetime.now().isoformat()
-                print(("Epoch: {}\tTRAIN: {}\tCurrent Step: {}\tLoss {}\t"
-                      "").format(epochs_completed, time_str, step, loss))
-            return pred, loss, step
+                print(("Epoch: {}\tTRAIN: {}\tCurrent Step: {}\tLoss {}\tF1: {}"
+                      "").format(epochs_completed, time_str, step, loss, f1))
+
+            return pred, length, loss, step, f1
 
     def evaluate_step(self, sess, text_batch, ne_batch, verbose=True):
         """
@@ -246,18 +249,48 @@ class BLSTMNER:
             self.input: text_batch,
             self.output: ne_batch
         }
-        ops = [self.global_step, self.loss, self.prediction]
+        ops = [self.global_step, self.loss, self.prediction, self.length]
         if hasattr(self, 'dev_summary_op'):
             ops.append(self.dev_summary_op)
-            step, loss, pred, summaries = sess.run(
-                                                                ops, feed_dict)
+            step, loss, pred, length, summaries = sess.run(ops, feed_dict)
             self.dev_summary_writer.add_summary(summaries, step)
         else:
-            step, loss, pred = sess.run(ops, feed_dict)
+            step, loss, pred, length = sess.run(ops, feed_dict)
 
+        f1 = self.get_f1_score(pred, ne_batch, length)
         time_str = datetime.datetime.now().isoformat()
         if verbose:
-            print("EVAL: {}\tStep: {}\tloss: {:g}".format(
-                    time_str, step, loss))
-        return loss, pred
+            print("EVAL: {}\tStep: {}\tloss: {:g}\tF1: {}".format(
+                    time_str, step, loss, f1))
+        return loss, pred, f1
+
+    def get_f1_score(self, prediction, target, length):
+        tp = np.array([0] * (self.args.n_classes + 1))
+        fp = np.array([0] * (self.args.n_classes + 1))
+        fn = np.array([0] * (self.args.n_classes + 1))
+        target = np.argmax(target, 2)
+        prediction = np.argmax(prediction, 2)
+        for i in range(len(target)):
+            for j in range(length[i]):
+                if target[i, j] == prediction[i, j]:
+                    tp[target[i, j]] += 1
+                else:
+                    fp[target[i, j]] += 1
+                    fn[prediction[i, j]] += 1
+        unnamed_entity = self.args.n_classes - 1
+        for i in range(self.args.n_classes):
+            if i != unnamed_entity:
+                tp[self.args.n_classes] += tp[i]
+                fp[self.args.n_classes] += fp[i]
+                fn[self.args.n_classes] += fn[i]
+        precision = []
+        recall = []
+        fscore = []
+        for i in range(self.args.n_classes + 1):
+            precision.append(tp[i] * 1.0 / (tp[i] + fp[i]))
+            recall.append(tp[i] * 1.0 / (tp[i] + fn[i]))
+            fscore.append(
+                2.0 * precision[i] * recall[i] / (precision[i] + recall[i]))
+        #print(fscore)
+        return fscore[self.args.n_classes]
 

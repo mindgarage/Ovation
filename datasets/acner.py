@@ -273,8 +273,8 @@ class DataSet():
         ner = datasets.padseq(datasets.seq2id(ner, self.vocab_w2i[2]), pad)
 
         if one_hot:
-            pos = [to_categorical(p, nb_classes=len(self.vocab_w2i[1]))
-                   for p in pos]
+            #pos = [to_categorical(p, nb_classes=len(self.vocab_w2i[1]))
+            #       for p in pos]
             ner = [to_categorical(n, nb_classes=len(self.vocab_w2i[2]))
                    for n in ner]
 
