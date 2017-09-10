@@ -367,5 +367,6 @@ from .sem_eval import SemEval
 from .sick import Sick
 from .hotel_reviews import HotelReviews
 from .amazon_reviews_german import AmazonReviewsGerman
+from .acner import Acner
 #from gersen import Gersen
 

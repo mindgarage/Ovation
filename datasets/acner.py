@@ -279,9 +279,7 @@ class DataSet():
                    for n in ner]
 
         batch = self.Batch(
-            sentences=datasets.padseq(datasets.seq2id(sentences, self.vocab_w2i[0]), pad),
-            pos=datasets.padseq(datasets.seq2id(pos, self.vocab_w2i[1]), pad),
-            ner=datasets.padseq(datasets.seq2id(ner, self.vocab_w2i[2]), pad))
+            sentences=sentences, pos=pos, ner=ner)
 
         ret = batch
         if (return_sequence_lengths):
