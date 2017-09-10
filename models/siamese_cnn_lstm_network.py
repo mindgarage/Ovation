@@ -51,37 +51,36 @@ class SiameseCNNLSTM(object):
 
     def build_model(self, metadata_path=None, embedding_weights=None):
 
-        with tf.name_scope("embedding"):
-            self.embedding_weights, self.config = ops.embedding_layer(
-                                            metadata_path, embedding_weights)
-            self.embedded_s1 = tf.nn.embedding_lookup(self.embedding_weights,
-                                                      self.input_s1)
-            self.embedded_s2 = tf.nn.embedding_lookup(self.embedding_weights,
+        self.embedding_weights, self.config = ops.embedding_layer(
+                                        metadata_path, embedding_weights)
+        self.embedded_s1 = tf.nn.embedding_lookup(self.embedding_weights,
+                                                  self.input_s1)
+        self.embedded_s2 = tf.nn.embedding_lookup(self.embedding_weights,
                                                       self.input_s2)
 
-        with tf.name_scope("SIAMESE_CNN_LSTM"):
-            self.s1_cnn_out = ops.multi_filter_conv_block(self.embedded_s1,
-                                        self.args["n_filters"],
-                                        dropout_keep_prob=self.args["dropout"])
-            self.s1_lstm_out = ops.lstm_block(self.s1_cnn_out,
-                                       self.args["hidden_units"],
-                                       dropout=self.args["dropout"],
-                                       layers=self.args["rnn_layers"],
-                                       dynamic=False,
-                                       bidirectional=self.args["bidirectional"])
+        
+        self.s1_cnn_out = ops.multi_filter_conv_block(self.embedded_s1,
+                                self.args["n_filters"],
+                                dropout_keep_prob=self.args["dropout"])
+        self.s1_lstm_out = ops.lstm_block(self.s1_cnn_out,
+                                   self.args["hidden_units"],
+                                   dropout=self.args["dropout"],
+                                   layers=self.args["rnn_layers"],
+                                   dynamic=False,
+                                   bidirectional=self.args["bidirectional"])
 
-            self.s2_cnn_out = ops.multi_filter_conv_block(self.embedded_s2,
-                                          self.args["n_filters"], reuse=True,
-                                          dropout_keep_prob=self.args["dropout"])
-            self.s2_lstm_out = ops.lstm_block(self.s2_cnn_out,
-                                       self.args["hidden_units"],
-                                       dropout=self.args["dropout"],
-                                       layers=self.args["rnn_layers"],
-                                       dynamic=False, reuse=True,
-                                       bidirectional=self.args["bidirectional"])
-            self.distance = distances.exponential(self.s1_lstm_out,
-                                                  self.s2_lstm_out)
-
+        self.s2_cnn_out = ops.multi_filter_conv_block(self.embedded_s2,
+                                      self.args["n_filters"], reuse=True,
+                                      dropout_keep_prob=self.args["dropout"])
+        self.s2_lstm_out = ops.lstm_block(self.s2_cnn_out,
+                                   self.args["hidden_units"],
+                                   dropout=self.args["dropout"],
+                                   layers=self.args["rnn_layers"],
+                                   dynamic=False, reuse=True,
+                                   bidirectional=self.args["bidirectional"])
+        self.distance = distances.exponential(self.s1_lstm_out,
+                                              self.s2_lstm_out)
+    
         with tf.name_scope("loss"):
             self.loss = losses.mean_squared_error(self.input_sim, self.distance)
 
