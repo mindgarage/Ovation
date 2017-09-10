@@ -1,2 +1,4 @@
 from .siamese_cnn_lstm_network import SiameseCNNLSTM
-from .sentence_sentiment_predictor import SentenceSentimentPredictor
+from .sentence_sentiment_regressor import SentenceSentimentRegressor
+from .sentence_sentiment_classifier import SentenceSentimentClassifier
+from .blstm_ner import BLSTMNER
