@@ -86,17 +86,17 @@ class BLSTMNER:
         self.embedded_input = tf.nn.embedding_lookup(self.embedding_weights,
                                                      self.input)
 
-        with tf.name_scope("CNN_LSTM"):
-            self.cnn_out = ops.multi_filter_conv_block(self.embedded_text,
-                                        self.args["n_filters"],
-                                        dropout_keep_prob=self.args["dropout"])
-            self.lstm_out = ops.lstm_block(self.cnn_out,
-                                       self.args["hidden_units"],
-                                       dropout=self.args["dropout"],
-                                       layers=self.args["rnn_layers"],
-                                       dynamic=False,
-                                       bidirectional=self.args["bidirectional"])
-            self.out = fully_connected(self.lstm_out, 5)
+
+        self.cnn_out = ops.multi_filter_conv_block(self.embedded_text,
+                                    self.args["n_filters"],
+                                    dropout_keep_prob=self.args["dropout"])
+        self.lstm_out = ops.lstm_block(self.cnn_out,
+                                   self.args["hidden_units"],
+                                   dropout=self.args["dropout"],
+                                   layers=self.args["rnn_layers"],
+                                   dynamic=False,
+                                   bidirectional=self.args["bidirectional"])
+        self.out = fully_connected(self.lstm_out, 5)
 
         with tf.name_scope("loss"):
             self.loss = losses.categorical_cross_entropy(self.sentiment, self.out)
