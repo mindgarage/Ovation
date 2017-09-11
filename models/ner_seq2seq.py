@@ -6,13 +6,9 @@ import tensorflow as tf
 from tensorflow.contrib.legacy_seq2seq import basic_rnn_seq2seq
 
 from utils import ops
-from utils import distances
-from utils import losses
-from scipy.stats import pearsonr
-from sklearn.metrics import mean_squared_error
 from tensorflow.contrib.tensorboard.plugins import projector
 
-class NerSeq2Seq:
+class AcnerSeq2Seq:
     """
     A Seq2Seq model for Named Entity Recognition.
     """
@@ -36,7 +32,7 @@ class NerSeq2Seq:
 
         self.output = tf.placeholder(tf.float32,
                                       [None, self.args.get("sequence_length"),
-                                       self.args.n_classes])
+                                       self.args['n_classes']])
 
     def create_optimizer(self):
         self.optimizer = ops.get_optimizer(self.args["optimizer"]) \
@@ -99,7 +95,7 @@ class NerSeq2Seq:
         unstacked_embeddings_source = tf.unstack(reshaped_embeddings_source)
 
         self.embedding_weights_target, self.config = ops.embedding_layer(
-                                metadata_path[1], embedding_weights[1])
+                                metadata_path[2], embedding_weights[2])
         self.embedded_input_target = tf.nn.embedding_lookup(
                                 self.embedding_weights_target,
                                 self.input_target)
@@ -107,19 +103,13 @@ class NerSeq2Seq:
                                           perm=[1,0,2])
         unstacked_embeddings_target = tf.unstack(reshaped_embeddings_target)
 
-        cell = tf.nn.rnn_cell.LSTMCell(self.args.rnn_size,
+        cell = tf.nn.rnn_cell.LSTMCell(self.args['hidden_units'],
                                           state_is_tuple=True)
-        cell = tf.nn.rnn_cell.DropoutWrapper(cell,
-                                            output_keep_prob=self.args.dropout)
-        cell = tf.nn.rnn_cell.MultiRNNCell([cell] * self.args.rnn_layers,
-                                              state_is_tuple=True)
 
         # The output is a list of [batch_size x args.rnn_size]
-        outputs, state = basic_rnn_seq2seq(reshaped_embeddings_source,
-                              reshaped_embeddings_target,
-                              cell,
-                              dtype=tf.float32,
-                              scope='seq2seq')
+        outputs, state = basic_rnn_seq2seq(unstacked_embeddings_source,
+                                              unstacked_embeddings_target, cell,
+                                                   dtype=tf.float32, scope='seq2seq')
 
         # This will be [time x batch_size x args.rnn_size]
         outputs = tf.stack(outputs)
@@ -127,14 +117,15 @@ class NerSeq2Seq:
         # Now this will be [batch_size, time, args.rnn_size]
         outputs = tf.transpose(outputs, perm=[1,0,2])
 
-        self.outputs = tf.reshape(outputs, shape=[-1, self.args.rnn_size])
-        vocab_matrix, vocab_biases = self.weight_and_bias(self.args.rnn_size,
-                                            embedding_weights[1].shape[0])
+        self.outputs = tf.reshape(outputs, shape=[-1, self.args['hidden_units']])
+        vocab_matrix, vocab_biases = self.weight_and_bias(self.args['hidden_units'],
+                                            embedding_weights[2].shape[0])
 
-        softmax_logits = tf.matmul(vocab_matrix, self.outputs) + vocab_biases
-        self.prediction = tf.nn.softmax(softmax_logits)
-
-        reshaped_output = tf.reshape(self.output, [-1, self.args.n_classes])
+        softmax_logits = tf.matmul(self.outputs, vocab_matrix) + vocab_biases
+        self.prediction_open = tf.nn.softmax(softmax_logits)
+        self.prediction = tf.reshape(self.prediction_open,
+                         shape=[-1, self.args['sequence_length'], self.args['n_classes']])
+        reshaped_output = tf.reshape(self.output, [-1, self.args['n_classes']])
 
         with tf.name_scope("loss"):
             self.loss = tf.losses.softmax_cross_entropy(reshaped_output,
@@ -145,8 +136,8 @@ class NerSeq2Seq:
                 self.loss = tf.reduce_mean(self.loss + self.regularizer)
 
         with tf.name_scope("Graph_Accuracy"):
-            self.correct_preds = tf.equal(tf.argmax(self.prediction, 1),
-                                          tf.argmax(self.reshaped_output, 1))
+            self.correct_preds = tf.equal(tf.argmax(self.prediction_open, 1),
+                                          tf.argmax(reshaped_output, 1))
             self.accuracy = tf.reduce_mean(
                                 tf.cast(self.correct_preds, tf.float32),
                                 name="accuracy")
@@ -234,7 +225,7 @@ class NerSeq2Seq:
         self.load_saved_model(sess)
 
     def train_step(self, sess, text_batch, ne_batch, categorical_ne_batch,
-                                            epochs_completed, verbose=True):
+                   epochs_completed, verbose=True):
             """
             A single train step
             """
@@ -245,40 +236,41 @@ class NerSeq2Seq:
                 self.output: categorical_ne_batch,
             }
             ops = [self.tr_op_set, self.global_step,
-                   self.loss, self.prediction]
+                   self.loss, self.prediction, self.accuracy]
             if hasattr(self, 'train_summary_op'):
                 ops.append(self.train_summary_op)
-                _, step, loss, pred, summaries = sess.run(ops, feed_dict)
+                _, step, loss, pred, acc, summaries = sess.run(ops, feed_dict)
                 self.train_summary_writer.add_summary(summaries, step)
             else:
-                _, step, loss, pred = sess.run(ops, feed_dict)
+                _, step, loss, pred, acc = sess.run(ops, feed_dict)
 
             if verbose:
                 time_str = datetime.datetime.now().isoformat()
                 print(("Epoch: {}\tTRAIN: {}\tCurrent Step: {}\tLoss {}\t"
                       "").format(epochs_completed, time_str, step, loss))
-            return pred, loss, step
+            return pred, loss, step, acc
 
-    def evaluate_step(self, sess, text_batch, ne_batch, verbose=True):
+    def evaluate_step(self, sess, text_batch, ne_batch, categorical_ne_batch,
+                      verbose=True):
         """
         A single evaluation step
         """
         feed_dict = {
-            self.input: text_batch,
-            self.output: ne_batch
+            self.input_source : text_batch,
+            self.input_target : ne_batch,
+            self.output : categorical_ne_batch,
         }
-        ops = [self.global_step, self.loss, self.prediction]
+        ops = [self.global_step, self.loss, self.prediction, self.accuracy]
         if hasattr(self, 'dev_summary_op'):
             ops.append(self.dev_summary_op)
-            step, loss, pred, summaries = sess.run(
-                                                                ops, feed_dict)
+            step, loss, pred,  acc , summaries= sess.run(ops, feed_dict)
             self.dev_summary_writer.add_summary(summaries, step)
         else:
-            step, loss, pred = sess.run(ops, feed_dict)
+            step, loss, pred,  acc = sess.run(ops, feed_dict)
 
         time_str = datetime.datetime.now().isoformat()
         if verbose:
             print("EVAL: {}\tStep: {}\tloss: {:g}".format(
                     time_str, step, loss))
-        return loss, pred
+        return loss, pred, acc
 

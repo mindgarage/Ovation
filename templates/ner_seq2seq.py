@@ -1,16 +1,15 @@
 import os
 import datetime
-import datasets
 import tflearn
 
-import numpy as np
 import tensorflow as tf
-import matplotlib.pyplot as plt
 
 from datasets import Acner
-from tflearn.data_utils import to_categorical
 from datasets import id2seq
-from models import NerSeq2Seq
+from models import AcnerSeq2Seq
+from datasets import onehot2seq
+
+from tflearn.data_utils import to_categorical
 
 # Model Parameters
 tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character "
@@ -51,7 +50,7 @@ tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops"
 tf.flags.DEFINE_boolean("verbose", True, "Log Verbosity Flag")
 tf.flags.DEFINE_float("gpu_fraction", 0.5, "Fraction of GPU to use")
 tf.flags.DEFINE_string("dataset", "sts", "name of the dataset")
-tf.flags.DEFINE_string("data_dir", "/tmp", "path to the root of the data "
+tf.flags.DEFINE_string("data_dir", "/scratch", "path to the root of the data "
                                            "directory")
 tf.flags.DEFINE_string("experiment_name",
                        "NER_SEQ2SEQ",
@@ -74,7 +73,7 @@ def initialize_tf_graph(metadata_path, w2v, n_classes):
     with sess.as_default():
         args = FLAGS.__flags
         args['n_classes'] = n_classes
-        ner_model = BLSTMNER(args)
+        ner_model = AcnerSeq2Seq(args)
         ner_model.show_train_params()
         ner_model.build_model(metadata_path=metadata_path,
                               embedding_weights=w2v)
@@ -85,6 +84,7 @@ def initialize_tf_graph(metadata_path, w2v, n_classes):
           'drill down this method')
     ner_model.easy_setup(sess)
     return sess, ner_model
+
 
 def train(dataset, metadata_path, w2v, n_classes):
     print("Configuring Tensorflow Graph")
@@ -99,18 +99,15 @@ def train(dataset, metadata_path, w2v, n_classes):
         while dataset.train.epochs_completed < FLAGS.num_epochs:
             train_batch = dataset.train.next_batch(batch_size=FLAGS.batch_size,
                         pad=ner_model.args["sequence_length"], one_hot=False)
-
-            one_hot_targets = [to_categorical(n, nb_classes=len(
-                        dataset.train.vocab_w2i[2])) for n in train_batch.ner]
-
-            pco, loss, step = ner_model.train_step(sess,
-                     train_batch.text, train_batch.ratings, one_hot_targets,
-                                            dataset.train.epochs_completed)
+            cat_targets = [to_categorical(n, len(dataset.w2i[2])) for n in train_batch.ner]
+            pred, loss, step, acc = ner_model.train_step(sess, train_batch.sentences,
+                             train_batch.ner, cat_targets, dataset.train.epochs_completed)
 
             if step % FLAGS.evaluate_every == 0:
-                avg_val_loss, avg_val_pco, _ = evaluate(sess=sess,
-                         dataset=dataset.validation, model=ner_model,
-                         max_dev_itr=FLAGS.max_dev_itr, mode='val', step=step)
+                avg_val_loss, avg_val_acc, _ = evaluate(sess=sess,
+                             dataset=dataset.validation, model=ner_model,
+                                max_dev_itr=FLAGS.max_dev_itr, mode='val',
+                                    step=step)
 
             if step % FLAGS.checkpoint_every == 0:
                 min_validation_loss = maybe_save_checkpoint(sess,
@@ -118,11 +115,22 @@ def train(dataset, metadata_path, w2v, n_classes):
 
             if dataset.train.epochs_completed != prev_epoch:
                 prev_epoch = dataset.train.epochs_completed
-                avg_test_loss, avg_test_pco, _ = evaluate(
-                            sess=sess, dataset=dataset.test, model=spr_model,
+                avg_test_loss, avg_test_acc, _ = evaluate(
+                            sess=sess, dataset=dataset.test, model=ner_model,
                             max_dev_itr=0, mode='test', step=step)
                 min_validation_loss = maybe_save_checkpoint(sess,
-                            min_validation_loss, avg_val_loss, step, spr_model)
+                            min_validation_loss, avg_val_loss, step, ner_model)
+
+def maybe_save_checkpoint(sess, min_validation_loss, val_loss, step, model):
+    if val_loss <= min_validation_loss:
+        model.saver.save(sess, model.checkpoint_prefix, global_step=step)
+        tf.train.write_graph(sess.graph.as_graph_def(), model.checkpoint_prefix,
+                             "graph" + str(step) + ".pb", as_text=False)
+        print("Saved model {} with avg_loss={} checkpoint"
+              " to {}\n".format(step, min_validation_loss,
+                                model.checkpoint_prefix))
+        return val_loss
+    return min_validation_loss
 
 
 def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
@@ -134,74 +142,64 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
     history_path = os.path.join(results_dir,
                                 '{}_history.txt'.format(mode))
 
-    avg_val_loss, avg_val_pco = 0.0, 0.0
+    avg_val_loss, avg_acc = 0.0, 0.0
     print("Running Evaluation {}:".format(mode))
     tflearn.is_training(False, session=sess)
 
     # This is needed to reset the local variables initialized by
     # TF for calculating streaming Pearson Correlation and MSE
-    all_dev_review, all_dev_score, all_dev_gt = [], [], []
+    all_dev_text, all_dev_pred, all_dev_gt = [], [], []
     dev_itr = 0
     while (dev_itr < max_dev_itr and max_dev_itr != 0) \
             or mode in ['test', 'train']:
-        val_batch = dataset.next_batch(FLAGS.batch_size, rescale=[0.0, 1.0],
-                                       pad=model.args["sequence_length"])
-
-        one_hot_targets = [to_categorical(n, nb_classes=len(
-            dataset.train.vocab_w2i[2])) for n in train_batch.ner]
-
-        val_loss, val_pco, val_mse, val_ratings = \
-            model.evaluate_step(sess, val_batch.text, val_batch.ratings,
-                                one_hot_targets)
-        avg_val_loss += val_mse
-        avg_val_pco += val_pco[0]
-        all_dev_review += id2seq(val_batch.text, dataset.vocab_i2w)
-        all_dev_score += val_ratings.tolist()
-        all_dev_gt += val_batch.ratings
+        val_batch = dataset.next_batch(FLAGS.batch_size,
+                                       pad=model.args["sequence_length"],
+                                       one_hot=False, raw=False)
+        cat_targets = [to_categorical(n, len(dataset.vocab_w2i[2])) for n in val_batch.ner]
+        loss, pred, acc = model.evaluate_step(sess, val_batch.sentences,  val_batch.ner,
+                                                      cat_targets)
+        avg_val_loss += loss
+        avg_acc += acc
+        all_dev_text += id2seq(val_batch.sentences, dataset.vocab_i2w[0])
+        all_dev_pred += onehot2seq(pred, dataset.vocab_i2w[2])
+        all_dev_gt += onehot2seq(cat_targets, dataset.vocab_i2w[2])
         dev_itr += 1
 
         if mode == 'test' and dataset.epochs_completed == 1: break
         if mode == 'train' and dataset.epochs_completed == 1: break
 
-    result_set = (all_dev_review, all_dev_score, all_dev_gt)
+    result_set = (all_dev_text, all_dev_pred, all_dev_gt)
     avg_loss = avg_val_loss / dev_itr
-    avg_pco = avg_val_pco / dev_itr
+    avg_acc = avg_acc / dev_itr
     if verbose:
-        print("{}:\t Loss: {}\tPco{}".format(mode, avg_loss, avg_pco))
+        print("{}:\t Loss: {}".format(mode, avg_loss, avg_acc))
 
     with open(samples_path, 'w') as sf, open(history_path, 'a') as hf:
-        for x1, sim, gt in zip(all_dev_review, all_dev_score, all_dev_gt):
-            sf.write('{}\t{}\t{}\n'.format(x1, sim, gt))
-        hf.write('STEP:{}\tTIME:{}\tPCO:{}\tMSE\t{}\n'.format(
+        for x1, pred, gt in zip(all_dev_text, all_dev_pred, all_dev_gt):
+            sf.write('{}\t{}\t{}\n'.format(x1, pred, gt))
+        hf.write('STEP:{}\tTIME:{}\tacc:{}\tLoss\t{}\n'.format(
                 step, datetime.datetime.now().isoformat(),
-                avg_pco, avg_loss))
+                avg_acc, avg_loss))
     tflearn.is_training(True, session=sess)
-    return avg_loss, avg_pco, result_set
+    return avg_loss, avg_acc, result_set
 
 
-def maybe_save_checkpoint(sess, min_validation_loss, val_loss, step, model):
-    if val_loss <= min_validation_loss:
-        model.saver.save(sess, model.checkpoint_prefix, global_step=step)
-        tf.train.write_graph(sess.graph.as_graph_def(), model.checkpoint_prefix,
-                             "graph" + str(step) + ".pb", as_text=False)
-        print("Saved model {} with avg_mse={} checkpoint"
-              " to {}\n".format(step, min_validation_loss,
-                                model.checkpoint_prefix))
-        return val_loss
-    return min_validation_loss
-
-
-
-
+def test(dataset, metadata_path, w2v, n_classes):
+    print("Configuring Tensorflow Graph")
+    with tf.Graph().as_default():
+        sess, siamese_model = initialize_tf_graph(metadata_path, w2v, n_classes)
+        avg_test_loss, avg_test_acc, test_result_set = evaluate(sess=sess,
+                                    dataset=dataset.test, model=siamese_model,
+                                        max_dev_itr=0, mode='test', step=-1)
+        print('Average acc score: {}\nAverage Loss: {}'.format(
+                avg_test_acc, avg_test_loss))
 
 
 if __name__ == '__main__':
     acner = Acner()
-
-    if FLAGS.mode == 'train':
-        train(acner, acner.metadata_paths[0], acner.w2v[0], len(acner.w2i[2]))
-    elif FLAGS.mode == 'test':
-        test(ard, ard.metadata_path, ard.w2v)
-    elif FLAGS.mode == 'results':
-        results(ard, ard.metadata_path, ard.w2v)
-
+    if FLAGS.mode == 'train' :
+        train(acner, acner.metadata_paths, acner.w2v, len(acner.w2i[2]))
+    elif FLAGS.mode == 'test' :
+        test(acner, acner.metadata_paths, acner.w2v, len(acner.w2i[2]))
+    else :
+        raise ValueError('Mode {} is not defined'.format(FLAGS.mode))
