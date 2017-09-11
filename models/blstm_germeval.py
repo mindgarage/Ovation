@@ -2,7 +2,6 @@ import os
 import pickle
 import datetime
 
-import numpy as np
 import tensorflow as tf
 
 from utils import ops
@@ -11,7 +10,7 @@ from tensorflow.contrib.tensorboard.plugins import projector
 from tensorflow.contrib.rnn import stack_bidirectional_rnn
 
 
-class BLSTMNER:
+class BLSTMGermEval:
     """
     A LSTM network for generating Named Entities given an input Sentence.
     """
@@ -31,6 +30,8 @@ class BLSTMNER:
     def create_placeholders(self):
         self.input = tf.placeholder(tf.int32,
                                  [None, self.args.get("sequence_length")])
+        self.pos = tf.placeholder(tf.int32,
+                                    [None, self.args.get("sequence_length")])
         self.input_lengths = tf.placeholder(tf.int32, [None])
         self.output = tf.placeholder(tf.float32,
                                       [None, self.args.get("sequence_length"),
@@ -98,8 +99,8 @@ class BLSTMNER:
         return tf.reduce_mean(cross_entropy)
 
     def build_model(self, metadata_path=None, embedding_weights=None):
-        self.embedding_weights, self.config = ops.embedding_layer(
-                                        metadata_path, embedding_weights)
+        self.embedding_weights, self.config = ops.embedding_layer(metadata_path[0],
+                                                                  embedding_weights[0])
         self.embedded_input = tf.nn.embedding_lookup(self.embedding_weights,
                                                      self.input)
         cells_fw, cells_bw =[], []
@@ -112,10 +113,7 @@ class BLSTMNER:
         self.rnn_output, _, _ = stack_bidirectional_rnn(cells_fw, cells_bw,
                    tf.unstack(tf.transpose(self.embedded_input, perm=[1, 0, 2])),
                        dtype=tf.float32, sequence_length=self.input_lengths)
-        #dropped_rnn_output = []
-        #for out in self.rnn_output:
-        #    dropped_rnn_output.append(dropout(out, keep_prob=self.args['dropout']))
-        #self.rnn_output = dropped_rnn_output
+
         weight, bias = self.weight_and_bias(2 * self.args['hidden_units'],
                                             self.args['n_classes'])
         self.rnn_output = tf.reshape(tf.transpose(tf.stack(self.rnn_output), perm=[1, 0, 2]),
@@ -217,8 +215,8 @@ class BLSTMNER:
         print('Loading Saved Model')
         self.load_saved_model(sess)
 
-    def train_step(self, sess, text_batch, ne_batch, lengths_batch, epochs_completed,
-                   verbose=True):
+    def train_step(self, sess, text_batch, ne_batch, lengths_batch,
+                   epochs_completed, verbose=True):
             """
             A single train step
             """
@@ -243,7 +241,8 @@ class BLSTMNER:
 
             return pred, loss, step, acc
 
-    def evaluate_step(self, sess, text_batch, ne_batch, lengths_batch, verbose=True):
+    def evaluate_step(self, sess, text_batch, ne_batch, lengths_batch,
+                      verbose=True):
         """
         A single evaluation step
         """

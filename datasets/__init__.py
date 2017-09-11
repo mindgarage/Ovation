@@ -203,6 +203,7 @@ def tokenize(line, tokenizer='spacy', lang='en'):
 
 def vocabulary_builder(data_paths, min_frequency=5, tokenizer='spacy',
                    downcase=True, max_vocab_size=None, line_processor=None, lang='en'):
+    print('Building a new vocabulary')
     cnt = collections.Counter()
     for data_path in data_paths:
         bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength,
@@ -328,6 +329,7 @@ def preload_w2v(w2i, initialize='random', lang='en'):
     '''
     initialize can be "random" or "zeros"
     '''
+    print('Preloading a w2v matrix with dims VOCAB_SIZE X 300')
     spacy_nlp = get_spacy(lang)
     if initialize == 'random':
         w2v = np.random.rand(len(w2i) , 300)
@@ -382,7 +384,6 @@ def paths_exist(paths_list):
     return True
 
 
-#from .microsoft_paraphrase_dataset import MicrosoftParaphraseDataset
 from .gersen import Gersen
 from .sts import STS
 from .sts_large import STSLarge
@@ -395,5 +396,5 @@ from .sick import Sick
 from .hotel_reviews import HotelReviews
 from .amazon_reviews_german import AmazonReviewsGerman
 from .acner import Acner
-#from gersen import Gersen
+from .germeval import Germeval
 

@@ -40,9 +40,9 @@ tf.flags.DEFINE_integer("max_checkpoints", 100, "Maximum number of "
 tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 300, "Number of training epochs"
                                            " (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 200, "Evaluate model on dev set "
+tf.flags.DEFINE_integer("evaluate_every", 500, "Evaluate model on dev set "
                                     "after this many steps (default: 100)")
-tf.flags.DEFINE_integer("checkpoint_every", 200, "Save model after this many"
+tf.flags.DEFINE_integer("checkpoint_every", 500, "Save model after this many"
                                                   " steps (default: 100)")
 tf.flags.DEFINE_integer("max_dev_itr", 100, "max munber of dev iterations "
                               "to take for in-training evaluation")
@@ -54,11 +54,10 @@ tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops"
                                                        " on devices")
 tf.flags.DEFINE_boolean("verbose", True, "Log Verbosity Flag")
 tf.flags.DEFINE_float("gpu_fraction", 0.5, "Fraction of GPU to use")
-tf.flags.DEFINE_string("dataset", "sts", "name of the dataset")
-tf.flags.DEFINE_string("data_dir", "/tmp", "path to the root of the data "
+tf.flags.DEFINE_string("data_dir", "/scratch", "path to the root of the data "
                                            "directory")
 tf.flags.DEFINE_string("experiment_name",
-                       "AMAZON_SENTIMENT_CNN_LSTM_REGRESSION",
+                       "AMAZON_SENTIMENT_CNN_LSTM_CLASSIFICATION",
                        "Name of your model")
 tf.flags.DEFINE_string("mode", "train", "'train' or 'test or results'")
 
