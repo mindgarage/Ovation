@@ -57,9 +57,10 @@ cd /path/to/Ovation
 python templates/ner_seq2seq.py --data_dir=data/blah --experiment=BLAH
 ```
 
+
 ## Models
 
-
-
+(say that here we keep the pretrained models, and that they can be
+downloaded somehow)
 
 

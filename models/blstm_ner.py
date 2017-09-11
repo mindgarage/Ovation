@@ -80,6 +80,8 @@ class BLSTMNER:
             print('Could not find training options so using currently given '
                   'values.')
 
+    # Inspired by:
+    # https://github.com/monikkinom/ner-lstm/blob/master/model.py
     def weight_and_bias(self, in_size, out_size):
         weight = tf.truncated_normal([in_size, out_size], stddev=0.01)
         bias = tf.constant(0.1, shape=[out_size])
