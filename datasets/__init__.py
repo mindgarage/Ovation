@@ -370,7 +370,6 @@ def paths_exist(paths_list):
     return True
 
 
-#from .microsoft_paraphrase_dataset import MicrosoftParaphraseDataset
 from .gersen import Gersen
 from .sts import STS
 from .sts_large import STSLarge
@@ -383,5 +382,5 @@ from .sick import Sick
 from .hotel_reviews import HotelReviews
 from .amazon_reviews_german import AmazonReviewsGerman
 from .acner import Acner
-#from gersen import Gersen
+from .germeval import Germeval
 

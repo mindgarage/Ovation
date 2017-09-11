@@ -5,7 +5,7 @@ import collections
 import datasets
 
 from datasets.acner import Acner
-
+from tflearn.data_utils import to_categorical
 
 class Germeval(Acner):
     def __init__(self, train_validate_split=None, test_split=None,
@@ -29,12 +29,12 @@ class Germeval(Acner):
 
     def initialize_datasets(self, train_data, validate_data, test_data, shuffle=True):
         self.train = DataSet(train_data, self.w2i, self.i2w, shuffle)
-        self.validate = DataSet(validate_data, self.w2i, self.i2w, shuffle)
+        self.validation = DataSet(validate_data, self.w2i, self.i2w, shuffle)
         self.test = DataSet(test_data, self.w2i, self.i2w, shuffle)
 
     def initialize_vocabulary(self):
         self.initialize_vocabulary_ll(['texts', 'ner1', 'ner2'], [5,1,1],
-                                      [True, False, False], 'split')
+                                      [False, False, False], ['spacy', 'split', 'split'])
 
     def construct(self):
         self.dataset_name = 'GermEval 2014: Named Entity Recognition Shared Task'
@@ -122,14 +122,10 @@ class DataSet():
         self.Batch = self.initialize_batch()
 
     def initialize_batch(self):
-        return collections.namedtuple('Batch', ['sentences', 'ner1', 'ner2'])
+        return collections.namedtuple('Batch', ['sentences', 'ner1', 'ner2', 'lengths'])
 
-    def next_batch(self, batch_size=64, seq_begin=False, seq_end=False,
-                   pad=0, get_raw=False, return_sequence_lengths=False,
-                   tokenizer='spacy'):
-        # format: either 'one_hot' or 'numerical'
-        # rescale: if format is 'numerical', then this should be a tuple
-        #           (min, max)
+    def next_batch(self, batch_size=64, pad=0, raw=False,
+                   tokenizer=['spacy', 'split', 'split'], one_hot=False):
         samples = self.data[self._index_in_epoch:self._index_in_epoch+batch_size]
 
         if (len(samples) < batch_size):
@@ -146,27 +142,31 @@ class DataSet():
         ner1 = data[1]
         ner2 = data[2]
 
-        if (get_raw):
+        if (raw):
             return self.Batch(sentences=sentences,
                               ner1=ner1,
                               ner2=ner2)
 
         # Generate sequences
-        sentences = self.generate_sequences(sentences, tokenizer='split')
-        ner1 = self.generate_sequences(ner1, tokenizer='split')
-        ner2 = self.generate_sequences(ner2, tokenizer='split')
+        sentences = self.generate_sequences(sentences, tokenizer=tokenizer[0])
+        ner1 = self.generate_sequences(ner1, tokenizer=tokenizer[1])
+        ner2 = self.generate_sequences(ner2, tokenizer=tokenizer[2])
 
-        batch = self.Batch(
-            sentences=datasets.padseq(datasets.seq2id(sentences, self.vocab_w2i[0]), pad),
-            ner1=datasets.padseq(datasets.seq2id(ner1, self.vocab_w2i[1]), pad),
-            ner2=datasets.padseq(datasets.seq2id(ner2, self.vocab_w2i[2]), pad))
+        lengths = [len(s) for s in sentences]
+        sentences = datasets.padseq(datasets.seq2id(sentences,
+                                                    self.vocab_w2i[0]), pad)
+        ner1 = datasets.padseq(datasets.seq2id(ner1, self.vocab_w2i[1]), pad)
+        ner2 = datasets.padseq(datasets.seq2id(ner2, self.vocab_w2i[2]), pad)
+        
+        if one_hot:
+            ner1 = [to_categorical(n, nb_classes=len(self.vocab_w2i[1]))
+                   for n in ner1]
+            ner2 = [to_categorical(n, nb_classes=len(self.vocab_w2i[2]))
+                   for n in ner2]
 
-        ret = batch
-        if (return_sequence_lengths):
-            lens = [len(i) for i in sentences]
-            return batch, lens
+        batch = self.Batch(sentences=sentences, ner1=ner1, ner2=ner2, lengths=lengths)
 
-        return ret
+        return batch
 
     def generate_sequences(self, x, tokenizer):
         new_x = []

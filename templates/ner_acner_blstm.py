@@ -1,15 +1,12 @@
 import os
 import datetime
-import datasets
 import tflearn
 
-import numpy as np
 import tensorflow as tf
-import matplotlib.pyplot as plt
 
 from datasets import Acner
 from datasets import id2seq
-from models import BLSTMNER
+from models import BLSTMAcner
 from datasets import onehot2seq
 
 
@@ -52,7 +49,7 @@ tf.flags.DEFINE_float("gpu_fraction", 0.5, "Fraction of GPU to use")
 tf.flags.DEFINE_string("data_dir", "/tmp", "path to the root of the data "
                                            "directory")
 tf.flags.DEFINE_string("experiment_name",
-                       "NER_BLSTM",
+                       "NER_ACNER_BLSTM",
                        "Name of your model")
 tf.flags.DEFINE_string("mode", "train", "'train' or 'test'")
 
@@ -72,7 +69,7 @@ def initialize_tf_graph(metadata_path, w2v, n_classes):
     with sess.as_default():
         args = FLAGS.__flags
         args['n_classes'] = n_classes
-        ner_model = BLSTMNER(args)
+        ner_model = BLSTMAcner(args)
         ner_model.show_train_params()
         ner_model.build_model(metadata_path=metadata_path,
                               embedding_weights=w2v)
@@ -99,8 +96,9 @@ def train(dataset, metadata_path, w2v, n_classes):
             train_batch = dataset.train.next_batch(batch_size=FLAGS.batch_size,
                         pad=ner_model.args["sequence_length"], one_hot=True)
             pred, loss, step, acc = ner_model.train_step(sess,
-                                train_batch.sentences, train_batch.ner,
-                                    train_batch.lengths, dataset.train.epochs_completed)
+                                    train_batch.sentences, train_batch.ner,
+                                        train_batch.lengths, train_batch.pos,
+                                             dataset.train.epochs_completed)
 
             if step % FLAGS.evaluate_every == 0:
                 avg_val_loss, avg_val_acc, _ = evaluate(sess=sess,
@@ -153,9 +151,10 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
             or mode in ['test', 'train']:
         val_batch = dataset.next_batch(FLAGS.batch_size,
                                        pad=model.args["sequence_length"],
-                                       one_hot=True)
+                                       one_hot=True, raw=False)
         loss, pred, acc = model.evaluate_step(sess, val_batch.sentences,
-                                             val_batch.ner, val_batch.lengths)
+                                              val_batch.ner, val_batch.lengths,
+                                              val_batch.pos)
         avg_val_loss += loss
         avg_acc += acc
         all_dev_text += id2seq(val_batch.sentences, dataset.vocab_i2w[0])
@@ -197,8 +196,8 @@ if __name__ == '__main__':
     acner = Acner()
 
     if FLAGS.mode == 'train':
-        train(acner, acner.metadata_paths[0], acner.w2v[0], len(acner.w2i[2]))
+        train(acner, acner.metadata_paths, acner.w2v, len(acner.w2i[2]))
     elif FLAGS.mode == 'test':
-        test(acner, acner.metadata_paths[0], acner.w2v[0], len(acner.w2i[2]))
+        test(acner, acner.metadata_paths, acner.w2v, len(acner.w2i[2]))
     else:
         raise ValueError('Mode {} is not defined'.format(FLAGS.mode))
