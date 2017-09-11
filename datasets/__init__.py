@@ -191,6 +191,7 @@ def tokenize(line, tokenizer='spacy', lang='en'):
 
 def vocabulary_builder(data_paths, min_frequency=5, tokenizer='spacy',
                    downcase=True, max_vocab_size=None, line_processor=None, lang='en'):
+    print('Building a new vocabulary')
     cnt = collections.Counter()
     for data_path in data_paths:
         bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength,
@@ -316,6 +317,7 @@ def preload_w2v(w2i, initialize='random', lang='en'):
     '''
     initialize can be "random" or "zeros"
     '''
+    print('Preloading a w2v matrix with dims VOCAB_SIZE X 300')
     spacy_nlp = get_spacy(lang)
     if initialize == 'random':
         w2v = np.random.rand(len(w2i) , 300)

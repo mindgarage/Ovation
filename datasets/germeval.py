@@ -126,16 +126,17 @@ class DataSet():
 
     def next_batch(self, batch_size=64, pad=0, raw=False,
                    tokenizer=['spacy', 'split', 'split'], one_hot=False):
-        samples = self.data[self._index_in_epoch:self._index_in_epoch+batch_size]
-
-        if (len(samples) < batch_size):
-            self._epochs_completed += 1
-            self._index_in_epoch = 0
-
+        samples = None
+        if self._index_in_epoch + batch_size > len(self.data) :
+            samples = self.data[self._index_in_epoch : len(self.data)]
             random.shuffle(self.data)
-
-            missing_samples = batch_size - len(samples)
-            samples.extend(self.data[0:missing_samples])
+            missing_samples = batch_size - (len(self.data) - self._index_in_epoch)
+            self._epochs_completed += 1
+            samples.extend(self.data[0 :missing_samples])
+            self._index_in_epoch = missing_samples
+        else :
+            samples = self.data[self._index_in_epoch :self._index_in_epoch + batch_size]
+            self._index_in_epoch += batch_size
 
         data = list(zip(*samples))
         sentences = data[0]
