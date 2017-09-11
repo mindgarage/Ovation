@@ -10,7 +10,7 @@ to do it.
 
 # Usage
 
-The following example show how to use the `Gersen` class. Any other
+The following example show how to use the `Acner` class. Any other
 dataset can be used with minor differences. These differnces basically
 reflect that kind of data present in the dataset.
 
@@ -29,7 +29,7 @@ while acner.train.epochs_completed < 10:
                              # we pad the sequences with an invalid
                              # character so that all instances of the
                              # batch have 40 elements
-		             pad=40,
+                             pad=40,
                              # If `one_hot` is not True, we get only
                              # a sequence of numbers with the index
                              # of each word of the sequence in the
