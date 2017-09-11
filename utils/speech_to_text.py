@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Adapted from:
+# https://github.com/Uberi/speech_recognition/blob/master/examples/microphone_recognition.py
+
 import argparse
 
 # NOTE: this example requires PyAudio because it uses the Microphone class

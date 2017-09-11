@@ -6,10 +6,9 @@ import tensorflow as tf
 
 from datasets import Acner
 from datasets import id2seq
-from models import AcnerSeq2Seq
+from models import BLSTMAcner
 from datasets import onehot2seq
 
-from tflearn.data_utils import to_categorical
 
 # Model Parameters
 tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character "
@@ -25,8 +24,6 @@ tf.flags.DEFINE_integer("hidden_units", 128, "Number of hidden units of the "
 tf.flags.DEFINE_integer("rnn_layers", 2, "Number of layers in the RNN")
 tf.flags.DEFINE_string("optimizer", 'adam', "Number of layers in the RNN")
 tf.flags.DEFINE_integer("learning_rate", 0.0001, "Learning Rate")
-tf.flags.DEFINE_boolean("bidirectional", True, "Flag to have Bidirectional "
-                                               "LSTMs")
 tf.flags.DEFINE_integer("sequence_length", 50, "maximum length of a sequence")
 
 # Training parameters
@@ -52,9 +49,9 @@ tf.flags.DEFINE_float("gpu_fraction", 0.5, "Fraction of GPU to use")
 tf.flags.DEFINE_string("data_dir", "/scratch", "path to the root of the data "
                                            "directory")
 tf.flags.DEFINE_string("experiment_name",
-                       "NER_SEQ2SEQ",
+                       "NER_ACNER_BLSTM",
                        "Name of your model")
-tf.flags.DEFINE_string("mode", "train", "'train' or 'test or results'")
+tf.flags.DEFINE_string("mode", "train", "'train' or 'test'")
 
 
 FLAGS = tf.flags.FLAGS
@@ -72,7 +69,7 @@ def initialize_tf_graph(metadata_path, w2v, n_classes):
     with sess.as_default():
         args = FLAGS.__flags
         args['n_classes'] = n_classes
-        ner_model = AcnerSeq2Seq(args)
+        ner_model = BLSTMAcner(args)
         ner_model.show_train_params()
         ner_model.build_model(metadata_path=metadata_path,
                               embedding_weights=w2v)
@@ -97,10 +94,11 @@ def train(dataset, metadata_path, w2v, n_classes):
         tflearn.is_training(True, session=sess)
         while dataset.train.epochs_completed < FLAGS.num_epochs:
             train_batch = dataset.train.next_batch(batch_size=FLAGS.batch_size,
-                        pad=ner_model.args["sequence_length"], one_hot=False)
-            cat_targets = [to_categorical(n, len(dataset.w2i[2])) for n in train_batch.ner]
-            pred, loss, step, acc = ner_model.train_step(sess, train_batch.sentences,
-                             train_batch.ner, cat_targets, dataset.train.epochs_completed)
+                        pad=ner_model.args["sequence_length"], one_hot=True)
+            pred, loss, step, acc = ner_model.train_step(sess,
+                                    train_batch.sentences, train_batch.ner,
+                                        train_batch.lengths, train_batch.pos,
+                                             dataset.train.epochs_completed)
 
             if step % FLAGS.evaluate_every == 0:
                 avg_val_loss, avg_val_acc, _ = evaluate(sess=sess,
@@ -153,15 +151,15 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
             or mode in ['test', 'train']:
         val_batch = dataset.next_batch(FLAGS.batch_size,
                                        pad=model.args["sequence_length"],
-                                       one_hot=False, raw=False)
-        cat_targets = [to_categorical(n, len(dataset.vocab_w2i[2])) for n in val_batch.ner]
-        loss, pred, acc = model.evaluate_step(sess, val_batch.sentences,  val_batch.ner,
-                                                      cat_targets)
+                                       one_hot=True, raw=False)
+        loss, pred, acc = model.evaluate_step(sess, val_batch.sentences,
+                                              val_batch.ner, val_batch.lengths,
+                                              val_batch.pos)
         avg_val_loss += loss
         avg_acc += acc
         all_dev_text += id2seq(val_batch.sentences, dataset.vocab_i2w[0])
         all_dev_pred += onehot2seq(pred, dataset.vocab_i2w[2])
-        all_dev_gt += onehot2seq(cat_targets, dataset.vocab_i2w[2])
+        all_dev_gt += onehot2seq(val_batch.ner, dataset.vocab_i2w[2])
         dev_itr += 1
 
         if mode == 'test' and dataset.epochs_completed == 1: break
@@ -196,9 +194,9 @@ def test(dataset, metadata_path, w2v, n_classes):
 
 if __name__ == '__main__':
     acner = Acner()
-    if FLAGS.mode == 'train' :
+    if FLAGS.mode == 'train':
         train(acner, acner.metadata_paths, acner.w2v, len(acner.w2i[2]))
-    elif FLAGS.mode == 'test' :
+    elif FLAGS.mode == 'test':
         test(acner, acner.metadata_paths, acner.w2v, len(acner.w2i[2]))
-    else :
+    else:
         raise ValueError('Mode {} is not defined'.format(FLAGS.mode))

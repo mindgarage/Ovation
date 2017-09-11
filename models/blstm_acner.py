@@ -2,34 +2,38 @@ import os
 import pickle
 import datetime
 
+import numpy as np
 import tensorflow as tf
-from tensorflow.contrib.legacy_seq2seq import basic_rnn_seq2seq
 
 from utils import ops
+from tflearn.layers import dropout
 from tensorflow.contrib.tensorboard.plugins import projector
+from tensorflow.contrib.rnn import stack_bidirectional_rnn
 
-class AcnerSeq2Seq:
+
+class BLSTMAcner:
     """
-    A Seq2Seq model for Named Entity Recognition.
+    A LSTM network for generating Named Entities given an input Sentence.
     """
     def __init__(self, train_options):
         self.args = train_options
-        self.create_placeholders()
-        self.create_scalars()
         self.create_experiment_dirs()
         self.load_train_options()
         self.save_train_options()
+        self.create_placeholders()
+        self.create_scalars()
+        
 
     def create_scalars(self):
         self.global_step = tf.Variable(0, name="global_step", trainable=False)
         self.dropout_keep_prob = self.args.get("dropout")
 
     def create_placeholders(self):
-        self.input_source = tf.placeholder(tf.int32,
+        self.input = tf.placeholder(tf.int32,
                                  [None, self.args.get("sequence_length")])
-        self.input_target = tf.placeholder(tf.int32,
-                                 [None, self.args.get("sequence_length")])
-
+        self.pos = tf.placeholder(tf.int32,
+                                    [None, self.args.get("sequence_length")])
+        self.input_lengths = tf.placeholder(tf.int32, [None])
         self.output = tf.placeholder(tf.float32,
                                       [None, self.args.get("sequence_length"),
                                        self.args['n_classes']])
@@ -78,71 +82,64 @@ class AcnerSeq2Seq:
             print('Could not find training options so using currently given '
                   'values.')
 
-    # Inspired by:
-    # https://github.com/monikkinom/ner-lstm/blob/master/model.py
     def weight_and_bias(self, in_size, out_size):
         weight = tf.truncated_normal([in_size, out_size], stddev=0.01)
         bias = tf.constant(0.1, shape=[out_size])
         return tf.Variable(weight), tf.Variable(bias)
 
+    def cost(self):
+        cross_entropy = self.output * tf.log(self.prediction)
+        cross_entropy = -tf.reduce_sum(cross_entropy, reduction_indices=2)
+        mask = tf.sign(
+            tf.reduce_max(tf.abs(self.output), reduction_indices=2))
+        cross_entropy *= mask
+        cross_entropy = tf.reduce_sum(cross_entropy, reduction_indices=1)
+        cross_entropy /= tf.cast(self.input_lengths, tf.float32)
+        return tf.reduce_mean(cross_entropy)
 
     def build_model(self, metadata_path=None, embedding_weights=None):
-        self.embedding_weights_source, self.config = ops.embedding_layer(
-                                metadata_path[0], embedding_weights[0])
-        self.embedded_input_source = tf.nn.embedding_lookup(
-                                self.embedding_weights_source,
-                                self.input_source)
-        reshaped_embeddings_source = tf.transpose(self.embedded_input_source,
-                                          perm=[1,0,2])
-        unstacked_embeddings_source = tf.unstack(reshaped_embeddings_source)
+        self.embedding_weights, self.config = ops.embedding_layer(metadata_path[0],
+                                                                  embedding_weights[0])
+        self.pos_embedding_weights, self.config = ops.embedding_layer(metadata_path[1],
+                                              embedding_weights[1], name='pos_embedding')
+        self.embedded_input = tf.nn.embedding_lookup(self.embedding_weights,
+                                                     self.input)
+        self.embedded_pos = tf.nn.embedding_lookup(self.pos_embedding_weights,
+                                                     self.pos)
+        
+        self.merged_input = tf.concat([self.embedded_input, self.embedded_pos], axis=-1)
+        cells_fw, cells_bw =[], []
+        for layer in range(self.args['rnn_layers']):
+            cells_fw.append(tf.contrib.rnn.LSTMCell(self.args['hidden_units'],
+                            state_is_tuple=True))
+            cells_bw.append(tf.contrib.rnn.LSTMCell(self.args['hidden_units'],
+                            state_is_tuple=True))
+            
+        self.rnn_output, _, _ = stack_bidirectional_rnn(cells_fw, cells_bw,
+                   tf.unstack(tf.transpose(self.merged_input, perm=[1, 0, 2])),
+                       dtype=tf.float32, sequence_length=self.input_lengths)
 
-        self.embedding_weights_target, self.config = ops.embedding_layer(
-                                metadata_path[2], embedding_weights[2])
-        self.embedded_input_target = tf.nn.embedding_lookup(
-                                self.embedding_weights_target,
-                                self.input_target)
-        reshaped_embeddings_target = tf.transpose(self.embedded_input_target,
-                                          perm=[1,0,2])
-        unstacked_embeddings_target = tf.unstack(reshaped_embeddings_target)
-
-        cell = tf.nn.rnn_cell.LSTMCell(self.args['hidden_units'],
-                                          state_is_tuple=True)
-
-        # The output is a list of [batch_size x args.rnn_size]
-        outputs, state = basic_rnn_seq2seq(unstacked_embeddings_source,
-                                              unstacked_embeddings_target, cell,
-                                                   dtype=tf.float32, scope='seq2seq')
-
-        # This will be [time x batch_size x args.rnn_size]
-        outputs = tf.stack(outputs)
-
-        # Now this will be [batch_size, time, args.rnn_size]
-        outputs = tf.transpose(outputs, perm=[1,0,2])
-
-        self.outputs = tf.reshape(outputs, shape=[-1, self.args['hidden_units']])
-        vocab_matrix, vocab_biases = self.weight_and_bias(self.args['hidden_units'],
-                                            embedding_weights[2].shape[0])
-
-        softmax_logits = tf.matmul(self.outputs, vocab_matrix) + vocab_biases
-        self.prediction_open = tf.nn.softmax(softmax_logits)
-        self.prediction = tf.reshape(self.prediction_open,
-                         shape=[-1, self.args['sequence_length'], self.args['n_classes']])
-        reshaped_output = tf.reshape(self.output, [-1, self.args['n_classes']])
-
+        weight, bias = self.weight_and_bias(2 * self.args['hidden_units'],
+                                            self.args['n_classes'])
+        self.rnn_output = tf.reshape(tf.transpose(tf.stack(self.rnn_output), perm=[1, 0, 2]),
+                                            [-1, 2 * self.args['hidden_units']])
+        self.rnn_output = dropout(self.rnn_output, keep_prob=self.args['dropout'])
+        logits = tf.matmul(self.rnn_output, weight) + bias
+        prediction = tf.nn.softmax(logits)
+        self.prediction = tf.reshape(prediction, [-1, self.args.get("sequence_length"),
+                                                  self.args['n_classes']])
+        open_targets = tf.reshape(self.output, [-1, self.args['n_classes']])
         with tf.name_scope("loss"):
-            self.loss = tf.losses.softmax_cross_entropy(reshaped_output,
-                                                        softmax_logits)
+            #self.loss = self.cost()
+            self.loss = tf.losses.softmax_cross_entropy(open_targets, logits)
 
             if self.args["l2_reg_beta"] > 0.0:
                 self.regularizer = ops.get_regularizer(self.args["l2_reg_beta"])
                 self.loss = tf.reduce_mean(self.loss + self.regularizer)
-
-        with tf.name_scope("Graph_Accuracy"):
-            self.correct_preds = tf.equal(tf.argmax(self.prediction_open, 1),
-                                          tf.argmax(reshaped_output, 1))
-            self.accuracy = tf.reduce_mean(
-                                tf.cast(self.correct_preds, tf.float32),
-                                name="accuracy")
+        with tf.name_scope('accuracy'):
+            self.correct_prediction = tf.equal(tf.argmax(prediction, 1),
+                                               tf.argmax(open_targets, 1))
+            self.accuracy = tf.reduce_mean(tf.cast(self.correct_prediction, tf.float32))
 
     def create_histogram_summary(self):
         grad_summaries = []
@@ -158,11 +155,9 @@ class AcnerSeq2Seq:
     def create_scalar_summary(self, sess):
         # Summaries for loss and accuracy
         self.loss_summary = tf.summary.scalar("loss", self.loss)
-        self.accuracy_summary = tf.summary.scalar("accuracy", self.accuracy)
 
         # Train Summaries
-        self.train_summary_op = tf.summary.merge([self.loss_summary,
-                                                  self.accuracy_summary])
+        self.train_summary_op = tf.summary.merge([self.loss_summary])
 
         self.train_summary_writer = tf.summary.FileWriter(self.checkpoint_dir,
                                                      sess.graph)
@@ -170,8 +165,7 @@ class AcnerSeq2Seq:
                                        self.config)
 
         # Dev summaries
-        self.dev_summary_op = tf.summary.merge([self.loss_summary,
-                                                self.accuracy_summary])
+        self.dev_summary_op = tf.summary.merge([self.loss_summary])
 
         self.dev_summary_writer = tf.summary.FileWriter(self.dev_summary_dir,
                                                    sess.graph)
@@ -226,16 +220,16 @@ class AcnerSeq2Seq:
         print('Loading Saved Model')
         self.load_saved_model(sess)
 
-    def train_step(self, sess, text_batch, ne_batch, categorical_ne_batch,
+    def train_step(self, sess, text_batch, ne_batch, lengths_batch, pos_batch,
                    epochs_completed, verbose=True):
             """
             A single train step
             """
-
             feed_dict = {
-                self.input_source: text_batch,
-                self.input_target: ne_batch,
-                self.output: categorical_ne_batch,
+                self.input: text_batch,
+                self.output: ne_batch,
+                self.input_lengths: lengths_batch,
+                self.pos: pos_batch
             }
             ops = [self.tr_op_set, self.global_step,
                    self.loss, self.prediction, self.accuracy]
@@ -248,31 +242,32 @@ class AcnerSeq2Seq:
 
             if verbose:
                 time_str = datetime.datetime.now().isoformat()
-                print(("Epoch: {}\tTRAIN: {}\tCurrent Step: {}\tLoss {}\t"
-                      "").format(epochs_completed, time_str, step, loss))
+                print(("Epoch: {}\tTRAIN: {}\tCurrent Step: {}\tLoss {}\tAcc: {}"
+                      "").format(epochs_completed, time_str, step, loss, acc))
+
             return pred, loss, step, acc
 
-    def evaluate_step(self, sess, text_batch, ne_batch, categorical_ne_batch,
+    def evaluate_step(self, sess, text_batch, ne_batch, lengths_batch, pos_batch,
                       verbose=True):
         """
         A single evaluation step
         """
         feed_dict = {
-            self.input_source : text_batch,
-            self.input_target : ne_batch,
-            self.output : categorical_ne_batch,
+            self.input: text_batch,
+            self.output: ne_batch,
+            self.input_lengths : lengths_batch,
+            self.pos: pos_batch
         }
         ops = [self.global_step, self.loss, self.prediction, self.accuracy]
         if hasattr(self, 'dev_summary_op'):
             ops.append(self.dev_summary_op)
-            step, loss, pred,  acc , summaries= sess.run(ops, feed_dict)
+            step, loss, pred, acc,  summaries = sess.run(ops, feed_dict)
             self.dev_summary_writer.add_summary(summaries, step)
         else:
-            step, loss, pred,  acc = sess.run(ops, feed_dict)
+            step, loss, pred, acc = sess.run(ops, feed_dict)
 
         time_str = datetime.datetime.now().isoformat()
         if verbose:
-            print("EVAL: {}\tStep: {}\tloss: {:g}".format(
-                    time_str, step, loss))
+            print("EVAL: {}\tStep: {}\tloss: {:g}\tAcc: {}".format(
+                    time_str, step, loss, acc))
         return loss, pred, acc
-

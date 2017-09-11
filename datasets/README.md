@@ -1,33 +1,72 @@
-# Dataset utility classes
+# Dataset Classes
 
 Our goal is to make the datasets as easily accessible as possible. We
-want the developers to think on how to prototype their models and not
-on how to format the data they intend to use. For this reason, we
+want the developers to think about how to prototype their models and not
+much about how to format the data they intend to use. For this reason, we
 developed a set of classes that are supposed to give you the maximum
 flexibility in accessing your data while still providing defaults in
 case you don't want to lose time thinking what would be the best way
 to do it.
 
+# Usage
+
+The following example show how to use the `Acner` class. Any other
+dataset can be used with minor differences. These differnces basically
+reflect that kind of data present in the dataset.
+
+```python
+# Instantiates a new element of the class of the dataset
+acner = Acner()
+
+# You can use the variable `epochs_completed` for 
+while acner.train.epochs_completed < 10:
+
+    # You can get a new batch with `next_batch()`
+    train_batch = acner.train.next_batch(
+                             # By default, the batch size is always 64
+                             batch_size=64,
+                             # `pad` makes sense for sequences. Here
+                             # we pad the sequences with an invalid
+                             # character so that all instances of the
+                             # batch have 40 elements
+                             pad=40,
+                             # If `one_hot` is not True, we get only
+                             # a sequence of numbers with the index
+                             # of each word of the sequence in the
+                             # vocabulary.
+                             one_hot=True)
+
+    # do something with the batch. E.g.,
+    train_step(train_batch.sentences,
+               train_batch.pos,
+               train_batch.ner)
+```
+
+# Examples
+
+Refer to
+[the Wiki page]()
+for more examples of how to get data using these classes.
+The Sections below describe the structure of the code, in case you
+want, for example, to edit it or make your own class.
+
+
 # Code Structure
 
-The default parameters are define in `__init__.py`. This file is also
+The default parameters are defined in `__init__.py`. This file is also
 where all the datasets are loaded. Our predefined default parameters
 are:
 
 ```python
-shuffle = True
-stratified = True
+# Used in small datasets. For the value 0.9, it means that `validate`
+# stays with 10% and `train` stays with 90% of the data
 train_validate_split = 0.9
-test_split_large = 0.3
+
+# Used in small datasets. For the value 0.2, it means that `test`
+# stays with 20% of the data, and the rest is divided between `train`
+# and `validate`
 test_split_small = 0.2
-
-spacy_nlp = spacy.load('en_core_web_md')
-tokenizer = nlp.pipeline[0]
 ```
-
-In `__init__.py` we also, by default, initialize spaCy's pipeline.
-We use the spaCy's tokenizer to generate our datasets, but you are
-free to use others, e.g., nltk's tokenizer.
 
 ## One class for each dataset
 

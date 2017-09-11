@@ -1,3 +1,33 @@
+# This is a modified version of the `vocabulary_expansion.py` file python file
+# found in
+# https://github.com/tensorflow/models/blob/master/skip_thoughts/skip_thoughts/vocabulary_expansion.py
+#
+# The following are the changes performed in the file:
+# (this summmary is required by the Apache License)
+#
+#  * Removes most of the references to the `skip_thoughts` name.
+#  * Adds variable `embedding_tensor_name`.
+#  * Adds code to print the tensor names
+#  * Uses `embedding_tensor_name` in load_model_embeddings
+#
+
+
+# Copyright 2017 The TensorFlow Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
+
 """
 This script loads the word embeddings from a trained model and
 from a trained word2vec model (typically with a larger vocabulary). It trains a
@@ -75,7 +105,7 @@ def _load_model_embeddings(checkpoint_path, embedding_tensor_name):
   else:
     checkpoint_file = checkpoint_path
 
-  tf.logging.info("Loading teh models embedding matrix from %s",
+  tf.logging.info("Loading the model's embedding matrix from %s",
                   checkpoint_file)
   reader = tf.train.NewCheckpointReader(checkpoint_file)
   var_to_shape_map = reader.get_variable_to_shape_map()

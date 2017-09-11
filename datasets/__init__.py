@@ -12,15 +12,26 @@ import progressbar
 
 from nltk.tokenize import word_tokenize as nltk_tokenizer
 
-shuffle = True
-stratified = True
+
+# Used in small datasets. For the value 0.9, it means that `validate`
+# stays with 10% and `train` stays with 90% of the data
 train_validate_split = 0.9
-test_split_large = 0.3
+
+# Used in small datasets. For the value 0.2, it means that `test`
+# stays with 20% of the data, and the rest is divided between `train`
+# and `validate`
 test_split_small = 0.2
+
+# This was done manually for all the large datasets. Is not needed anymore.
+# Left here for reference
+#test_split_large = 0.3
+
+# TODO: This has to be changed if we want to make this project installable
 data_root_directory = os.path.join('/', 'scratch', 'OSA-alpha', 'data', 'datasets')
+
+
 spacy_nlp = None
 spacy_nlp_de = None
-
 
 def get_spacy(lang='en'):
     global spacy_nlp
@@ -38,9 +49,6 @@ spacy_tokenizer = get_spacy(lang='en').tokenizer
 spacy_tokenizer_de = get_spacy(lang='de').tokenizer
 
 
-def default_tokenize(sentence):
-    return [i for i in re.split(r"([-.\"',:? !\$#@~()*&\^%;\[\]/\\\+<>\n=])",
-                                sentence) if i!='' and i!=' ' and i!='\n']
 
 
 def pad_sentences(data, pad=0, raw=False):
@@ -162,6 +170,10 @@ def sentence_tokenizer(line):
         sentences.append(sentence_tokens)
     return sentences
 
+def default_tokenize(sentence):
+    return [i for i in re.split(r"([-.\"',:? !\$#@~()*&\^%;\[\]/\\\+<>\n=])",
+                                sentence) if i!='' and i!=' ' and i!='\n']
+
 def tokenize(line, tokenizer='spacy', lang='en'):
     tokens = []
     if tokenizer == 'spacy':
@@ -191,6 +203,7 @@ def tokenize(line, tokenizer='spacy', lang='en'):
 
 def vocabulary_builder(data_paths, min_frequency=5, tokenizer='spacy',
                    downcase=True, max_vocab_size=None, line_processor=None, lang='en'):
+    print('Building a new vocabulary')
     cnt = collections.Counter()
     for data_path in data_paths:
         bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength,
@@ -316,6 +329,7 @@ def preload_w2v(w2i, initialize='random', lang='en'):
     '''
     initialize can be "random" or "zeros"
     '''
+    print('Preloading a w2v matrix with dims VOCAB_SIZE X 300')
     spacy_nlp = get_spacy(lang)
     if initialize == 'random':
         w2v = np.random.rand(len(w2i) , 300)
@@ -370,7 +384,6 @@ def paths_exist(paths_list):
     return True
 
 
-#from .microsoft_paraphrase_dataset import MicrosoftParaphraseDataset
 from .gersen import Gersen
 from .sts import STS
 from .sts_large import STSLarge
@@ -383,5 +396,5 @@ from .sick import Sick
 from .hotel_reviews import HotelReviews
 from .amazon_reviews_german import AmazonReviewsGerman
 from .acner import Acner
-#from gersen import Gersen
+from .germeval import Germeval
 
