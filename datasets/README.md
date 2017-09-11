@@ -42,27 +42,31 @@ while acner.train.epochs_completed < 10:
                train_batch.ner)
 ```
 
+# Examples
+
+Refer to
+[the Wiki page]()
+for more examples of how to get data using these classes.
+The Sections below describe the structure of the code, in case you
+want, for example, to edit it or make your own class.
+
 
 # Code Structure
 
-The default parameters are define in `__init__.py`. This file is also
+The default parameters are defined in `__init__.py`. This file is also
 where all the datasets are loaded. Our predefined default parameters
 are:
 
 ```python
-shuffle = True
-stratified = True
+# Used in small datasets. For the value 0.9, it means that `validate`
+# stays with 10% and `train` stays with 90% of the data
 train_validate_split = 0.9
-test_split_large = 0.3
+
+# Used in small datasets. For the value 0.2, it means that `test`
+# stays with 20% of the data, and the rest is divided between `train`
+# and `validate`
 test_split_small = 0.2
-
-spacy_nlp = spacy.load('en_core_web_md')
-tokenizer = nlp.pipeline[0]
 ```
-
-In `__init__.py` we also, by default, initialize spaCy's pipeline.
-We use the spaCy's tokenizer to generate our datasets, but you are
-free to use others, e.g., nltk's tokenizer.
 
 ## One class for each dataset
 
