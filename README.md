@@ -23,7 +23,37 @@ tasks and models.
 
 # How to use this Repository?
 
-The repository is composed 
+## Installation
+
+This code expects Python 3.4+. We recommend you to use a virtual environment.
+You can create a new virtual environment with:
+
+```
+# Change directory to the place where you'd like to create a new virtual
+# environment
+cd /path/to/where/you/want/to/put/your/environment
+
+# Create the virtual environment with Python 3
+virtualenv -p 3 name_of_your_enviroment
+```
+
+This will create a new folder with the name `name_of_your_enviroment`. With
+the environment set, you will now need to install some dependencies in the
+repository. For convenience,
+we provide a `requirements.txt` file that you can use directly. Just run:
+
+```
+# Clone this repository:
+git clone https://github.com/mindgarage/Ovation.git
+
+# Enter the new folder
+cd Ovation
+
+# Install all the requirements
+pip install -r requirements.txt
+```
+
+Now you are all set to use the code!
 
 
 # What you will find here?
@@ -51,9 +81,5 @@ Additionally, the following folders have some other useful code:
  * **tools**: Some standalone scripts.
  * **utils**: Utility functions used by the rest of the code.
  * **tests**: Some code used for testing the functionalities above
-
-
-## Simple example
-
 
 
