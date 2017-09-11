@@ -28,7 +28,7 @@ tasks and models.
 This code expects Python 3.4+. We recommend you to use a virtual environment.
 You can create a new virtual environment with:
 
-```
+```sh
 # Change directory to the place where you'd like to create a new virtual
 # environment
 cd /path/to/where/you/want/to/put/your/environment
@@ -42,7 +42,7 @@ the environment set, you will now need to install some dependencies in the
 repository. For convenience,
 we provide a `requirements.txt` file that you can use directly. Just run:
 
-```
+```sh
 # Clone this repository:
 git clone https://github.com/mindgarage/Ovation.git
 
