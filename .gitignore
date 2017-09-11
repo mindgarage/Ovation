@@ -1,6 +1,5 @@
 .idea/
-data/
+/data
 *.pyc
 *__pycache__/
 *.swp
-data
