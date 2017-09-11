@@ -87,6 +87,21 @@ def id2seq(data, i2w):
     return buff
 
 
+def onehot2seq(data, i2w):
+    buff = []
+    for seq in data:
+        w_seq = []
+        for term in seq:
+            arg = np.argmax(term)
+            if arg in i2w:
+                if arg == 0 or arg == 1 or arg == 2:
+                    continue
+                w_seq.append(i2w[arg])
+        sent = ' '.join(w_seq)
+        buff.append(sent)
+    return buff
+
+
 def seq2id(data, w2i, seq_begin=False, seq_end=False):
     buff = []
     for seq in data:
