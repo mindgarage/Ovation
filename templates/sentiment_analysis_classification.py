@@ -55,7 +55,7 @@ tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops"
 tf.flags.DEFINE_boolean("verbose", True, "Log Verbosity Flag")
 tf.flags.DEFINE_float("gpu_fraction", 0.5, "Fraction of GPU to use")
 tf.flags.DEFINE_string("dataset", "sts", "name of the dataset")
-tf.flags.DEFINE_string("data_dir", "/tmp", "path to the root of the data "
+tf.flags.DEFINE_string("data_dir", "/scratch", "path to the root of the data "
                                            "directory")
 tf.flags.DEFINE_string("experiment_name",
                        "AMAZON_SENTIMENT_CNN_LSTM_REGRESSION",

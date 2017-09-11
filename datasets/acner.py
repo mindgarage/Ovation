@@ -2,6 +2,9 @@ import os
 import csv
 import random
 import collections
+
+from builtins import len
+
 import datasets
 
 from tflearn.data_utils import to_categorical
@@ -112,7 +115,7 @@ class Acner():
 
     def initialize_vocabulary(self):
         self.initialize_vocabulary_ll(['texts', 'pos', 'ner'], [5,1,1],
-                                      [True, False, False], 'spacy')
+                                      [False, False, False], ['spacy', 'split', 'split'])
 
     def initialize_vocabulary_ll(self, names, min_frequencies,
                                  downcases, tokenizer):
@@ -120,18 +123,18 @@ class Acner():
             self.vocab_paths[i], self.w2v_paths[i], self.metadata_paths[i] = \
                 datasets.new_vocabulary(
                     files=[self.train_path], dataset_path=self.dataset_path,
-                    min_frequency=min_frequencies[i], tokenizer=tokenizer,
+                    min_frequency=min_frequencies[i], tokenizer=tokenizer[i],
                     downcase=downcases[i], max_vocab_size=None,
                     name=names[i],
-                    line_processor=lambda line: line.split('\t')[i])
+                    line_processor=lambda line: line.split('\t')[i], lang='de')
 
             self.w2i[i], self.i2w[i] = datasets.load_vocabulary(self.vocab_paths[i])
-            self.w2v[i] = datasets.preload_w2v(self.w2i[i])
+            self.w2v[i] = datasets.preload_w2v(self.w2i[i], lang='de')
             datasets.save_w2v(self.w2v_paths[i], self.w2v[i])
 
     def initialize_datasets(self, train_data, validate_data, test_data, shuffle=True):
         self.train = DataSet(train_data, self.w2i, self.i2w, shuffle)
-        self.validate = DataSet(validate_data, self.w2i, self.i2w, shuffle)
+        self.validation = DataSet(validate_data, self.w2i, self.i2w, shuffle)
         self.test = DataSet(test_data, self.w2i, self.i2w, shuffle)
 
     def get_sentence_index(self, s):
@@ -190,10 +193,10 @@ class Acner():
         # for new vocabularies on the text
         self.w2i[0], self.i2w[0] = datasets.load_vocabulary(self.vocab_paths[0])
         if load_w2v:
-            self.w2v[0] = datasets.preload_w2v(self.w2i[0])
+            self.w2v[0] = datasets.preload_w2v(self.w2i[0], lang='de')
             datasets.save_w2v(self.w2v_paths[0], self.w2v[0])
         self.train.set_vocab(self.w2i, self.i2w, 0)
-        self.validate.set_vocab(self.w2i, self.i2w, 0)
+        self.validation.set_vocab(self.w2i, self.i2w, 0)
         self.test.set_vocab(self.w2i, self.i2w, 0)
 
     def create_vocabulary(self, all_files,
@@ -225,7 +228,7 @@ class DataSet():
         self.Batch = self.initialize_batch()
 
     def initialize_batch(self):
-        return collections.namedtuple('Batch', ['sentences', 'pos', 'ner'])
+        return collections.namedtuple('Batch', ['sentences', 'pos', 'ner', 'lengths'])
 
     # I got the number of parts of speech with:
     # f = open('acner.csv', 'r', encoding='cp1252')
@@ -235,49 +238,54 @@ class DataSet():
     # i, w, p, ner = zip(*all_lines)
     # p = list(set(p))
     # len(p)
-    def next_batch(self, batch_size=64, seq_begin=False, seq_end=False,
-                   pad=0, get_raw=False, return_sequence_lengths=False,
-                   tokenizer='spacy'):
+    def next_batch(self, batch_size=64, pad=0, raw=False,
+                   tokenizer=['spacy', 'split', 'split'],
+                   one_hot=False):
         # format: either 'one_hot' or 'numerical'
         # rescale: if format is 'numerical', then this should be a tuple
         #           (min, max)
-        samples = self.data[self._index_in_epoch:self._index_in_epoch+batch_size]
-
-        if (len(samples) < batch_size):
-            self._epochs_completed += 1
-            self._index_in_epoch = 0
-
+        
+        samples = None
+        if self._index_in_epoch + batch_size > len(self.data):
+            samples = self.data[self._index_in_epoch: len(self.data)]
             random.shuffle(self.data)
-
-            missing_samples = batch_size - len(samples)
-            samples.extend(self.data[0:missing_samples])
+            missing_samples = batch_size - (len(self.data) - self._index_in_epoch)
+            self._epochs_completed += 1
+            samples.extend(self.data[0 :missing_samples])
+            self._index_in_epoch = missing_samples
+        else:
+            samples = self.data[self._index_in_epoch :self._index_in_epoch + batch_size]
+            self._index_in_epoch += batch_size
+            
 
         data = list(zip(*samples))
         sentences = data[0]
         pos = data[1]
         ner = data[2]
 
-        if (get_raw):
-            return self.Batch(sentences=sentences,
-                              pos=pos,
-                              ner=ner)
-
+        
         # Generate sequences
-        sentences = self.generate_sequences(sentences, tokenizer)
-        pos = self.generate_sequences(pos, tokenizer)
-        ner = self.generate_sequences(ner, tokenizer)
+        sentences = self.generate_sequences(sentences, tokenizer[0])
+        pos = self.generate_sequences(pos, tokenizer[1])
+        ner = self.generate_sequences(ner, tokenizer[2])
+        
+        lengths = [len(s) for s in sentences]
 
-        batch = self.Batch(
-            sentences=datasets.padseq(datasets.seq2id(sentences, self.vocab_w2i[0]), pad),
-            pos=datasets.padseq(datasets.seq2id(pos, self.vocab_w2i[1]), pad),
-            ner=datasets.padseq(datasets.seq2id(ner, self.vocab_w2i[2]), pad))
+        if (raw) :
+            return self.Batch(sentences=sentences, pos=pos, ner=ner, lengths=lengths)
 
-        ret = batch
-        if (return_sequence_lengths):
-            lens = [len(i) for i in sentences]
-            return batch, lens
+        sentences = datasets.padseq(datasets.seq2id(sentences,
+                                                    self.vocab_w2i[0]), pad)
+        pos = datasets.padseq(datasets.seq2id(pos, self.vocab_w2i[1]), pad)
+        ner = datasets.padseq(datasets.seq2id(ner, self.vocab_w2i[2]), pad)
 
-        return ret
+        if one_hot:
+            ner = [to_categorical(n, nb_classes=len(self.vocab_w2i[2]))
+                   for n in ner]
+
+        batch = self.Batch(sentences=sentences, pos=pos, ner=ner, lengths=lengths)
+        
+        return batch
 
     def generate_sequences(self, x, tokenizer):
         new_x = []
@@ -303,7 +311,7 @@ if __name__ == '__main__':
     import timeit
     t = timeit.timeit(Acner, number=100)
     print(t)
-    #a = Acner()
-    #b = a.train.next_batch()
-    #print(b)
+    a = Acner()
+    b = a.train.next_batch()
+    print(b)
 
