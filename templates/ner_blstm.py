@@ -27,9 +27,7 @@ tf.flags.DEFINE_integer("hidden_units", 128, "Number of hidden units of the "
 tf.flags.DEFINE_integer("rnn_layers", 2, "Number of layers in the RNN")
 tf.flags.DEFINE_string("optimizer", 'adam', "Number of layers in the RNN")
 tf.flags.DEFINE_integer("learning_rate", 0.0001, "Learning Rate")
-tf.flags.DEFINE_boolean("bidirectional", True, "Flag to have Bidirectional "
-                                               "LSTMs")
-tf.flags.DEFINE_integer("sequence_length", 100, "maximum length of a sequence")
+tf.flags.DEFINE_integer("sequence_length", 50, "maximum length of a sequence")
 
 # Training parameters
 tf.flags.DEFINE_integer("max_checkpoints", 100, "Maximum number of "
@@ -51,13 +49,12 @@ tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops"
                                                        " on devices")
 tf.flags.DEFINE_boolean("verbose", True, "Log Verbosity Flag")
 tf.flags.DEFINE_float("gpu_fraction", 0.5, "Fraction of GPU to use")
-tf.flags.DEFINE_string("dataset", "sts", "name of the dataset")
 tf.flags.DEFINE_string("data_dir", "/tmp", "path to the root of the data "
                                            "directory")
 tf.flags.DEFINE_string("experiment_name",
-                       "AMAZON_SENTIMENT_CNN_LSTM_REGRESSION",
+                       "NER_BLSTM",
                        "Name of your model")
-tf.flags.DEFINE_string("mode", "train", "'train' or 'test or results'")
+tf.flags.DEFINE_string("mode", "train", "'train' or 'test'")
 
 
 FLAGS = tf.flags.FLAGS
@@ -101,12 +98,12 @@ def train(dataset, metadata_path, w2v, n_classes):
         while dataset.train.epochs_completed < FLAGS.num_epochs:
             train_batch = dataset.train.next_batch(batch_size=FLAGS.batch_size,
                         pad=ner_model.args["sequence_length"], one_hot=True)
-            pred, length, loss, step, f1 = ner_model.train_step(sess,
-                                         train_batch.sentences, train_batch.ner,
-                                            dataset.train.epochs_completed)
+            pred, loss, step, acc = ner_model.train_step(sess,
+                                train_batch.sentences, train_batch.ner,
+                                    train_batch.lengths, dataset.train.epochs_completed)
 
             if step % FLAGS.evaluate_every == 0:
-                avg_val_loss, avg_val_f1, _ = evaluate(sess=sess,
+                avg_val_loss, avg_val_acc, _ = evaluate(sess=sess,
                              dataset=dataset.validation, model=ner_model,
                                 max_dev_itr=FLAGS.max_dev_itr, mode='val',
                                     step=step)
@@ -117,7 +114,7 @@ def train(dataset, metadata_path, w2v, n_classes):
 
             if dataset.train.epochs_completed != prev_epoch:
                 prev_epoch = dataset.train.epochs_completed
-                avg_test_loss, avg_test_f1, _ = evaluate(
+                avg_test_loss, avg_test_acc, _ = evaluate(
                             sess=sess, dataset=dataset.test, model=ner_model,
                             max_dev_itr=0, mode='test', step=step)
                 min_validation_loss = maybe_save_checkpoint(sess,
@@ -128,7 +125,7 @@ def maybe_save_checkpoint(sess, min_validation_loss, val_loss, step, model):
         model.saver.save(sess, model.checkpoint_prefix, global_step=step)
         tf.train.write_graph(sess.graph.as_graph_def(), model.checkpoint_prefix,
                              "graph" + str(step) + ".pb", as_text=False)
-        print("Saved model {} with avg_mse={} checkpoint"
+        print("Saved model {} with avg_loss={} checkpoint"
               " to {}\n".format(step, min_validation_loss,
                                 model.checkpoint_prefix))
         return val_loss
@@ -144,7 +141,7 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
     history_path = os.path.join(results_dir,
                                 '{}_history.txt'.format(mode))
 
-    avg_val_loss, avg_f1 = 0.0, 0.0
+    avg_val_loss, avg_acc = 0.0, 0.0
     print("Running Evaluation {}:".format(mode))
     tflearn.is_training(False, session=sess)
 
@@ -157,10 +154,10 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
         val_batch = dataset.next_batch(FLAGS.batch_size,
                                        pad=model.args["sequence_length"],
                                        one_hot=True)
-        loss, pred, f1 = model.evaluate_step(sess, val_batch.sentences,
-                                             val_batch.ner)
+        loss, pred, acc = model.evaluate_step(sess, val_batch.sentences,
+                                             val_batch.ner, val_batch.lengths)
         avg_val_loss += loss
-        avg_f1 += f1
+        avg_acc += acc
         all_dev_text += id2seq(val_batch.sentences, dataset.vocab_i2w[0])
         all_dev_pred += onehot2seq(pred, dataset.vocab_i2w[2])
         all_dev_gt += onehot2seq(val_batch.ner, dataset.vocab_i2w[2])
@@ -171,29 +168,29 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
 
     result_set = (all_dev_text, all_dev_pred, all_dev_gt)
     avg_loss = avg_val_loss / dev_itr
-    avg_f1 = avg_f1 / dev_itr
+    avg_acc = avg_acc / dev_itr
     if verbose:
-        print("{}:\t Loss: {}\tF1{}".format(mode, avg_loss, avg_f1))
+        print("{}:\t Loss: {}".format(mode, avg_loss, avg_acc))
 
     with open(samples_path, 'w') as sf, open(history_path, 'a') as hf:
         for x1, pred, gt in zip(all_dev_text, all_dev_pred, all_dev_gt):
             sf.write('{}\t{}\t{}\n'.format(x1, pred, gt))
-        hf.write('STEP:{}\tTIME:{}\tF1:{}\tLoss\t{}\n'.format(
+        hf.write('STEP:{}\tTIME:{}\tacc:{}\tLoss\t{}\n'.format(
                 step, datetime.datetime.now().isoformat(),
-                avg_f1, avg_loss))
+                avg_acc, avg_loss))
     tflearn.is_training(True, session=sess)
-    return avg_loss, avg_f1, result_set
+    return avg_loss, avg_acc, result_set
 
 
 def test(dataset, metadata_path, w2v, n_classes):
     print("Configuring Tensorflow Graph")
     with tf.Graph().as_default():
         sess, siamese_model = initialize_tf_graph(metadata_path, w2v, n_classes)
-        avg_test_loss, avg_test_f1, test_result_set = evaluate(sess=sess,
+        avg_test_loss, avg_test_acc, test_result_set = evaluate(sess=sess,
                                     dataset=dataset.test, model=siamese_model,
                                         max_dev_itr=0, mode='test', step=-1)
-        print('Average F1 score: {}\nAverage Loss: {}'.format(
-                avg_test_f1, avg_test_loss))
+        print('Average acc score: {}\nAverage Loss: {}'.format(
+                avg_test_acc, avg_test_loss))
 
 
 if __name__ == '__main__':

@@ -131,7 +131,7 @@ class Acner():
 
     def initialize_datasets(self, train_data, validate_data, test_data, shuffle=True):
         self.train = DataSet(train_data, self.w2i, self.i2w, shuffle)
-        self.validate = DataSet(validate_data, self.w2i, self.i2w, shuffle)
+        self.validation = DataSet(validate_data, self.w2i, self.i2w, shuffle)
         self.test = DataSet(test_data, self.w2i, self.i2w, shuffle)
 
     def get_sentence_index(self, s):
@@ -225,7 +225,7 @@ class DataSet():
         self.Batch = self.initialize_batch()
 
     def initialize_batch(self):
-        return collections.namedtuple('Batch', ['sentences', 'pos', 'ner'])
+        return collections.namedtuple('Batch', ['sentences', 'pos', 'ner', 'lengths'])
 
     # I got the number of parts of speech with:
     # f = open('acner.csv', 'r', encoding='cp1252')
@@ -235,9 +235,8 @@ class DataSet():
     # i, w, p, ner = zip(*all_lines)
     # p = list(set(p))
     # len(p)
-    def next_batch(self, batch_size=64, seq_begin=False, seq_end=False,
-                   pad=0, get_raw=False, return_sequence_lengths=False,
-                   tokenizer='spacy', one_hot=False):
+    def next_batch(self, batch_size=64, pad=0, get_raw=False, tokenizer='spacy',
+                   one_hot=False):
         # format: either 'one_hot' or 'numerical'
         # rescale: if format is 'numerical', then this should be a tuple
         #           (min, max)
@@ -266,7 +265,8 @@ class DataSet():
         sentences = self.generate_sequences(sentences, tokenizer)
         pos = self.generate_sequences(pos, tokenizer)
         ner = self.generate_sequences(ner, tokenizer)
-
+        
+        lengths = [len(s) for s in sentences]
         sentences = datasets.padseq(datasets.seq2id(sentences,
                                                     self.vocab_w2i[0]), pad)
         pos = datasets.padseq(datasets.seq2id(pos, self.vocab_w2i[1]), pad)
@@ -278,15 +278,9 @@ class DataSet():
             ner = [to_categorical(n, nb_classes=len(self.vocab_w2i[2]))
                    for n in ner]
 
-        batch = self.Batch(
-            sentences=sentences, pos=pos, ner=ner)
-
-        ret = batch
-        if (return_sequence_lengths):
-            lens = [len(i) for i in sentences]
-            return batch, lens
-
-        return ret
+        batch = self.Batch(sentences=sentences, pos=pos, ner=ner, lengths=lengths)
+        
+        return batch
 
     def generate_sequences(self, x, tokenizer):
         new_x = []
@@ -312,7 +306,7 @@ if __name__ == '__main__':
     import timeit
     t = timeit.timeit(Acner, number=100)
     print(t)
-    #a = Acner()
-    #b = a.train.next_batch()
-    #print(b)
+    a = Acner()
+    b = a.train.next_batch()
+    print(b)
 
