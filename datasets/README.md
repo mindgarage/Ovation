@@ -241,38 +241,3 @@ the following two code structures:
           +- w2v.tny
 ```
 
-# Special Dependencies
-
-## 1. Progressbar
-Install a progressbar
-
-```sh
-pip install progressbar2
-```
-
-#### Known Length
-Use the following sample code for the progressbar whenever you have
-to loop over an iterable of known length
-
-```python
-r = range(10)
-bar = progressbar.ProgressBar(redirect_stdout=True, max_value=len(r))
-
-for v_i, val in enumerate(r):
-    bar.update(v_i)
-bar.finish()
-```
-
-#### Unknown Length
-use the following sample code for the progressbar whenever you have
-to loop over an iterable of unknown length
-
-```python
-r = range(10)
-bar = progressbar.ProgressBar(redirect_stdout=True, max_value=progressbar.UnknownLength)
-
-for v_i, val in enumerate(r):
-    bar.update(v_i)
-bar.finish()
-```
-
