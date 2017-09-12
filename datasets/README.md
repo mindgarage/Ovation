@@ -45,7 +45,7 @@ while acner.train.epochs_completed < 10:
 # Examples
 
 Refer to
-[the Wiki page]()
+[the Wiki page](https://github.com/mindgarage/Ovation/wiki)
 for more examples of how to get data using these classes.
 The Sections below describe the structure of the code, in case you
 want, for example, to edit it or make your own class.
@@ -68,16 +68,35 @@ train_validate_split = 0.9
 test_split_small = 0.2
 ```
 
-## One class for each dataset
+## The Class Corresponding to the Dataset
 
-All datasets will follow the same structure. The name of the class
-corresponding to the dataset is the name of the dataset. For example,
-the class corresponding to the Microsoft Paraphrase Dataset is called
-MicrosoftParaphraseDataset; and the class corresponding to the Gersen
-dataset is called Gersen.
+Each dataset has a class corresponding to it. The name of the class
+is the name of the dataset. For example, the class corresponding to
+the Microsoft Paraphrase Dataset is called MicrosoftParaphraseDataset;
+and the class corresponding to the Gersen dataset is called Gersen.
 
-These classes implement the same API. In the following, the class
-related to the MicrosoftParaphraseDataset is used as an example.
+Additionally, all datasets have some common member variables:
+
+```python
+acner = Acner()
+
+print(self.dataset_name)
+print(self.dataset_description)
+print(self.dataset_path)
+```
+
+Should output
+
+```
+ACNER: Annotated Corpus for Named Entity Recognition
+A ~1M words (47957 sentences) corpus with NER annotations.
+/scratch/data/datasets/acner
+```
+
+Each class implements a similar API. The differences in the APIs
+reflect the differences in the data present in the dataset.
+Refer to 
+
 
 ### The `Dataset` class
 
