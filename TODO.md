@@ -1,16 +1,3 @@
-Tasks
-=====
-
- * Write about the tasks and how to use them to create the pipeline
-
-
-Datasets
-========
-
- * Say which dataset is available with data for which tasks
-
- * Create table of available datasets and licenses and tasks
-
 Models
 ======
 
@@ -26,17 +13,10 @@ Templates
 Tools
 =====
 
- * How to use the tools
+ * Both `generate_vocabulary.py` and `load_w2v.py` have 'de' hardcoded. Fix it
 
 Utils
 =====
 
- * Write descriptions of the functions in the files
-
-Misc
-====
-
- * Contribution Guidelines
-    * Create branches called Team/TeamName/feature/...
-    * 4 space, 80 characters, (see deep-trans)
+ * Is `pad_sentences` described right? What is `len(data[-1])` in that function???
 
