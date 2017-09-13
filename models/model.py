@@ -56,6 +56,10 @@ class Model(ABC):
 
     @abstractmethod
     def create_scalar_summary(self, sess):
+        """
+        This is the method where you you insert into the Summary object
+        the information to be displayed in the scalars tab in tensorboard.
+        """
         pass
 
     @abstractmethod
