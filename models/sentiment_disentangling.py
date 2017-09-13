@@ -1,4 +1,5 @@
 import os
+import pickle
 import datetime
 import datasets
 import tflearn
@@ -7,21 +8,223 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import pyqt_fit.nonparam_regression as smooth
+from pyqt_fit import npr_methods
 from scipy.stats import pearsonr
 from sklearn.metrics import mean_squared_error
+from tensorflow.contrib.tensorboard.plugins import projector
 
 from datasets import AmazonReviewsGerman
-from datasets import HotelReviews
 from datasets import id2seq
-from pyqt_fit import npr_methods
-from models import SentenceSentimentRegressor
+from utils import ops
+from utils import losses
+from datasets import STS
+from model_template import Model
+
+def concatenate_matrices(matrix, embedded_input, batch_size):
+    """
+    This assumes that `matrix` has size compatible with embedded_input
+    """
+    new_matrix = tf.unstack(matrix)
+    unstacked_embedded_input = tf.unstack(embedded_input, num=batch_size)
+    input_and_vector = []
+    for i in unstacked_embedded_input:
+        timesteps = tf.unstack(i)
+        concatenated_vecs = []
+        for j, item in enumerate(timesteps):
+            cat = tf.concat([item, new_matrix[j]], 0)
+            concatenated_vecs.append(cat)
+        input_and_vector.append(concatenated_vecs)
+    return input_and_vector
+
+def concatenate_vectors(vector, embedded_input, batch_size):
+    """
+    Given a 1D vector and an embedded input (with size Batch x Time x Features),
+    concatenate the vector in the dimension of the Features.
+    """
+    unstacked_embedded_input = tf.unstack(embedded_input, num=batch_size)
+    input_and_vector = []
+    for i in unstacked_embedded_input:
+        timesteps = tf.unstack(i)
+        concatenated_vecs = []
+        for j in timesteps:
+            cat = tf.concat([j, vector], 0)
+            concatenated_vecs.append(cat)
+        input_and_vector.append(concatenated_vecs)
+    return input_and_vector
+
+
+class SentimentDisentangler(Model):
+    def create_placeholders(self):
+        # It is a batch of sequences of size `sequence_length`
+        self.input = tf.placeholder(tf.int32,
+                            [None, self.args.get("sequence_length")])
+        
+        # Outputs a value for each element of the batch
+        self.expected_output = tf.placeholder(tf.float32, [None])
+
+    def weight_and_bias(self, in_size, out_size):
+        weight = tf.truncated_normal([in_size, out_size], stddev=0.01)
+        bias = tf.constant(0.1, shape=[out_size])
+        return tf.Variable(weight), tf.Variable(bias)
+
+    def build_model(self, metadata_path=None, embedding_weights=None):
+        # Transforms the `embedding_weights` data (that are just numpy variables) into a
+        # tf.Variable() object (or, if `embedding_weights` is None, just creates a new
+        # randomly tf.Variable()
+        self.embedding_weights, self.config = ops.embedding_layer(metadata_path,
+                                                                  embedding_weights)
+
+        # Transforms the `self.input` from a list of numbers into a list of word vectors
+        # Output is it Batch x Time x Word_Vector
+        self.embedded_input = tf.nn.embedding_lookup(self.embedding_weights,
+                                                     self.input)
+
+        # Generate a random fixed vector
+        self.fixed_vec = tf.get_variable("fixed_vec", [128], trainable=False)
+        self.fixed_vec = tf.parallel_stack([self.fixed_vec] *
+                                            self.args.get("sequence_length"))
+        new_fixed_vec = self.fixed_vec
+ 
+        for i in range(1):
+            # Concatenate the fixed vector with each word vector
+            input_and_fixed = concatenate_matrices(new_fixed_vec, self.embedded_input, 64)
+
+            # Apply a softmax in each sequence (i.e., in each element of the batch)
+            self.softmaxed_sequences = []
+            self.rescaled_sequences = []
+            for j, item in enumerate(input_and_fixed):
+                sequence = tf.stack(input_and_fixed[j])
+
+                # The Dense layer expects Batch x Input. I am fooling it into believing that
+                # it got a batch, and it will process each word separately, which is what I
+                # want.
+                fc_out = tf.layers.dense(sequence, 1)
+                softmaxed_seq = tf.nn.softmax(fc_out)
+                self.softmaxed_sequences.append(softmaxed_seq)
+
+                rescaled_seq = tf.multiply(sequence, softmaxed_seq)
+                self.rescaled_sequences.append(rescaled_seq)
+            
+            self.rescaled_sequences = tf.stack(self.rescaled_sequences)
+
+            # For now, just hardcoding values here
+            self.lstm_out = ops.lstm_block(self.rescaled_sequences,
+                                           hidden_units=128,
+                                           dropout=0.5,
+                                           layers=1,
+                                           dynamic=False,
+                                           bidirectional=True)
+
+            self.loop_dense = tf.layers.dense(self.lstm_out, 128, activation=tf.nn.sigmoid)
+            new_fixed_vec = self.loop_dense
+
+        self.final_dense = tf.layers.dense(self.loop_dense, 1, activation=tf.nn.sigmoid)
+        self.out = tf.squeeze(self.final_dense, 1)
+        
+        with tf.name_scope("loss"):
+            self.loss = losses.mean_squared_error(self.expected_output, self.out)
+
+            if self.args["l2_reg_beta"] > 0.0:
+                self.regularizer = ops.get_regularizer(self.args["l2_reg_beta"])
+                self.loss = tf.reduce_mean(self.loss + self.regularizer)
+                
+        #### Evaluation Measures.
+        with tf.name_scope("Pearson_correlation"):
+            self.pco, self.pco_update = tf.contrib.metrics.streaming_pearson_correlation(
+                    self.out, self.expected_output, name="pearson")
+        with tf.name_scope("MSE"):
+            self.mse, self.mse_update = tf.metrics.mean_squared_error(
+                    self.expected_output, self.out,  name="mse")
+
+    def create_scalar_summary(self, sess):
+                # Summaries for loss and accuracy
+        self.loss_summary = tf.summary.scalar("loss", self.loss)
+        self.pearson_summary = tf.summary.scalar("pco", self.pco)
+        self.mse_summary = tf.summary.scalar("mse", self.mse)
+
+        # Train Summaries
+        self.train_summary_op = tf.summary.merge([self.loss_summary,
+                                                  self.pearson_summary,
+                                                  self.mse_summary])
+
+        self.train_summary_writer = tf.summary.FileWriter(self.checkpoint_dir,
+                                                     sess.graph)
+        projector.visualize_embeddings(self.train_summary_writer,
+                                       self.config)
+
+        # Dev summaries
+        self.dev_summary_op = tf.summary.merge([self.loss_summary,
+                                                self.pearson_summary,
+                                                self.mse_summary])
+
+        self.dev_summary_writer = tf.summary.FileWriter(self.dev_summary_dir,
+                                                   sess.graph)
+ 
+    def train_step(self, sess, text_batch, sent_batch,
+                   epochs_completed, verbose=True):
+        """
+        A single train step
+        """
+        feed_dict = {
+            self.input: text_batch,
+            self.expected_output: sent_batch
+        }
+        ops = [self.tr_op_set, self.global_step, self.loss, self.out]
+        if hasattr(self, 'train_summary_op'):
+            ops.append(self.train_summary_op)
+            _, step, loss, sentiment, summaries = sess.run(ops,
+                feed_dict)
+            self.train_summary_writer.add_summary(summaries, step)
+        else:
+            _, step, loss, sentiment = sess.run(ops, feed_dict)
+
+        pco = pearsonr(sentiment, sent_batch)
+        mse = mean_squared_error(sent_batch, sentiment)
+
+        if verbose:
+            time_str = datetime.datetime.now().isoformat()
+            print("Epoch: {}\tTRAIN {}: Current Step: {}\tLoss: {:g}\t"
+                  "PCO: {}\tMSE: {}".format(epochs_completed,
+                    time_str, step, loss, pco, mse))
+        return pco, mse, loss, step
+
+    def evaluate_step(self, sess, text_batch, sent_batch, verbose=True):
+        """
+        A single evaluation step
+        """
+        feed_dict = {
+            self.input: text_batch,
+            self.expected_output: sent_batch
+        }
+        ops = [self.global_step, self.loss, self.out, self.pco,
+               self.pco_update, self.mse, self.mse_update]
+        if hasattr(self, 'dev_summary_op'):
+            ops.append(self.dev_summary_op)
+            step, loss, sentiment, pco, _, mse, _, summaries = sess.run(ops,
+                                                                  feed_dict)
+            self.dev_summary_writer.add_summary(summaries, step)
+        else:
+            step, loss, sentiment, pco, _, mse, _ = sess.run(ops, feed_dict)
+
+        time_str = datetime.datetime.now().isoformat()
+        pco = pearsonr(sentiment, sent_batch)
+        mse = mean_squared_error(sent_batch, sentiment)
+        if verbose:
+            print("EVAL: {}\tstep: {}\tloss: {:g}\t pco:{}\tmse: {}".format(time_str,
+                                                        step, loss, pco, mse))
+        return loss, pco, mse, sentiment
+    
+
+
+#########################
+
+
 
 # Model Parameters
 tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character "
                                             "embedding (default: 300)")
-tf.flags.DEFINE_boolean("train_embeddings", True, "True if you want to train "
-                                                  "the embeddings False "
-                                                  "otherwise")
+tf.flags.DEFINE_boolean("train_embeddings", True, "Dimensionality of character "
+                                            "embedding (default: 300)")
 tf.flags.DEFINE_float("dropout", 0.5, "Dropout keep probability ("
                                               "default: 1.0)")
 tf.flags.DEFINE_float("l2_reg_beta", 0.0, "L2 regularizaion lambda ("
@@ -30,13 +233,11 @@ tf.flags.DEFINE_integer("hidden_units", 128, "Number of hidden units of the "
                                              "RNN Cell")
 tf.flags.DEFINE_integer("n_filters", 500, "Number of filters ")
 tf.flags.DEFINE_integer("rnn_layers", 2, "Number of layers in the RNN")
-tf.flags.DEFINE_string("optimizer", 'adam', "Which Optimizer to use. "
-                    "Available options are: adam, gradient_descent, adagrad, "
-                    "adadelta, rmsprop")
+tf.flags.DEFINE_string("optimizer", 'adam', "Number of layers in the RNN")
 tf.flags.DEFINE_integer("learning_rate", 0.0001, "Learning Rate")
 tf.flags.DEFINE_boolean("bidirectional", True, "Flag to have Bidirectional "
                                                "LSTMs")
-tf.flags.DEFINE_integer("sequence_length", 100, "maximum length of a sequence")
+tf.flags.DEFINE_integer("sequence_length", 30, "maximum length of a sequence")
 
 # Training parameters
 tf.flags.DEFINE_integer("max_checkpoints", 100, "Maximum number of "
@@ -44,9 +245,9 @@ tf.flags.DEFINE_integer("max_checkpoints", 100, "Maximum number of "
 tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 300, "Number of training epochs"
                                            " (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 200, "Evaluate model on dev set "
+tf.flags.DEFINE_integer("evaluate_every", 1000, "Evaluate model on dev set "
                                     "after this many steps (default: 100)")
-tf.flags.DEFINE_integer("checkpoint_every", 200, "Save model after this many"
+tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many"
                                                   " steps (default: 100)")
 tf.flags.DEFINE_integer("max_dev_itr", 100, "max munber of dev iterations "
                               "to take for in-training evaluation")
@@ -60,19 +261,15 @@ tf.flags.DEFINE_boolean("verbose", True, "Log Verbosity Flag")
 tf.flags.DEFINE_float("gpu_fraction", 0.5, "Fraction of GPU to use")
 tf.flags.DEFINE_string("data_dir", "/scratch", "path to the root of the data "
                                            "directory")
-tf.flags.DEFINE_string("experiment_name",
-                       "AMAZON_SENTIMENT_CNN_LSTM_REGRESSION",
-                       "Name of your model")
+tf.flags.DEFINE_string("experiment_name", "STS_CNN_LSTM", "Name of your model")
 tf.flags.DEFINE_string("mode", "train", "'train' or 'test or results'")
-tf.flags.DEFINE_string("dataset", "amazon_de", "'The sentiment analysis "
-                           "dataset that you want to use. Available options "
-                           "are amazon_de and hotel_reviews")
 
 
 FLAGS = tf.flags.FLAGS
 FLAGS._parse_flags()
 
-
+    
+    
 def initialize_tf_graph(metadata_path, w2v):
     config = tf.ConfigProto(
         allow_soft_placement=FLAGS.allow_soft_placement,
@@ -82,17 +279,17 @@ def initialize_tf_graph(metadata_path, w2v):
     print("Session Started")
 
     with sess.as_default():
-        spr_model = SentenceSentimentRegressor(FLAGS.__flags)
-        spr_model.show_train_params()
-        spr_model.build_model(metadata_path=metadata_path,
+        siamese_model = SentimentDisentangler(FLAGS.__flags)
+        siamese_model.show_train_params()
+        siamese_model.build_model(metadata_path=metadata_path,
                                   embedding_weights=w2v)
-        spr_model.create_optimizer()
+        siamese_model.create_optimizer()
         print("Siamese CNN LSTM Model built")
 
     print('Setting Up the Model. You can do it one at a time. In that case '
           'drill down this method')
-    spr_model.easy_setup(sess)
-    return sess, spr_model
+    siamese_model.easy_setup(sess)
+    return sess, siamese_model
 
 
 def train(dataset, metadata_path, w2v):
@@ -303,20 +500,12 @@ def non_parametric_regression(xs, ys, method):
     return reg
 
 if __name__ == '__main__':
-
-    ds = None
-    if FLAGS.dataset == 'amazon_de':
-        print('Using the Amazon Reviews DE dataset')
-        ds = AmazonReviewsGerman()
-    elif FLAGS.dataset == 'hotel_reviews':
-        print('Using the Amazon Reviews DE dataset')
-        ds = HotelReviews()
-    else:
-        raise NotImplementedError('Dataset {} has not been '
-                                  'implemented yet'.format(FLAGS.dataset))
+    ard = AmazonReviewsGerman()
+    
     if FLAGS.mode == 'train':
-        train(ds, ds.metadata_path, ds.w2v)
+        train(ard, ard.metadata_path, ard.w2v)
     elif FLAGS.mode == 'test':
-        test(ds, ds.metadata_path, ds.w2v)
+        test(ard, ard.metadata_path, ard.w2v)
     elif FLAGS.mode == 'results':
-        results(ds, ds.metadata_path, ds.w2v)
+        results(ard, ard.metadata_path, ard.w2v)
+

@@ -11,6 +11,7 @@ from scipy.stats import pearsonr
 from sklearn.metrics import mean_squared_error
 
 from datasets import AmazonReviewsGerman
+from datasets import HotelReviews
 from datasets import id2seq
 from pyqt_fit import npr_methods
 from models import SentenceSentimentClassifier
@@ -18,8 +19,9 @@ from models import SentenceSentimentClassifier
 # Model Parameters
 tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character "
                                             "embedding (default: 300)")
-tf.flags.DEFINE_boolean("train_embeddings", True, "Dimensionality of character "
-                                            "embedding (default: 300)")
+tf.flags.DEFINE_boolean("train_embeddings", True, "True if you want to train "
+                                                  "the embeddings False "
+                                                  "otherwise")
 tf.flags.DEFINE_float("dropout", 0.5, "Dropout keep probability ("
                                               "default: 1.0)")
 tf.flags.DEFINE_float("l2_reg_beta", 0.0, "L2 regularizaion lambda ("
@@ -28,7 +30,9 @@ tf.flags.DEFINE_integer("hidden_units", 128, "Number of hidden units of the "
                                              "RNN Cell")
 tf.flags.DEFINE_integer("n_filters", 500, "Number of filters ")
 tf.flags.DEFINE_integer("rnn_layers", 2, "Number of layers in the RNN")
-tf.flags.DEFINE_string("optimizer", 'adam', "Number of layers in the RNN")
+tf.flags.DEFINE_string("optimizer", 'adam', "Which Optimizer to use. "
+                    "Available options are: adam, gradient_descent, adagrad, "
+                    "adadelta, rmsprop")
 tf.flags.DEFINE_integer("learning_rate", 0.0001, "Learning Rate")
 tf.flags.DEFINE_boolean("bidirectional", True, "Flag to have Bidirectional "
                                                "LSTMs")
@@ -60,6 +64,9 @@ tf.flags.DEFINE_string("experiment_name",
                        "AMAZON_SENTIMENT_CNN_LSTM_CLASSIFICATION",
                        "Name of your model")
 tf.flags.DEFINE_string("mode", "train", "'train' or 'test or results'")
+tf.flags.DEFINE_string("dataset", "amazon_de", "'The sentiment analysis "
+                           "dataset that you want to use. Available options "
+                           "are amazon_de and hotel_reviews")
 
 
 FLAGS = tf.flags.FLAGS
@@ -308,12 +315,24 @@ def non_parametric_regression(xs, ys, method):
 
 
 if __name__ == '__main__':
-    reviews = AmazonReviewsGerman()
+
+    ds = None
+    if FLAGS.dataset == 'amazon_de':
+        print('Using the Amazon Reviews DE dataset')
+        ds = AmazonReviewsGerman()
+    elif FLAGS.dataset == 'hotel_reviews':
+        print('Using the Amazon Reviews DE dataset')
+        ds = HotelReviews()
+    else:
+        raise NotImplementedError('Dataset {} has not been '
+                                  'implemented yet'.format(FLAGS.dataset))
+
+    ds = AmazonReviewsGerman()
     if FLAGS.mode == 'train':
-        train(reviews, reviews.metadata_path, reviews.w2v)
+        train(ds, ds.metadata_path, ds.w2v)
     elif FLAGS.mode == 'test':
-        test(reviews, reviews.metadata_path, reviews.w2v)
+        test(ds, ds.metadata_path, ds.w2v)
     elif FLAGS.mode == 'results':
-        results(reviews, reviews.metadata_path, reviews.w2v)
+        results(ds, ds.metadata_path, ds.w2v)
 
 

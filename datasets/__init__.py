@@ -27,7 +27,7 @@ test_split_small = 0.2
 #test_split_large = 0.3
 
 # TODO: This has to be changed if we want to make this project installable
-data_root_directory = os.path.join('/', 'scratch', 'OSA-alpha', 'data', 'datasets')
+data_root_directory = os.path.join('/', 'scratch', 'OSA', 'data', 'datasets')
 
 
 spacy_nlp = None
@@ -545,6 +545,8 @@ from .sem_eval import SemEval
 from .sick import Sick
 from .hotel_reviews import HotelReviews
 from .amazon_reviews_german import AmazonReviewsGerman
-from .acner import Acner
+from .acner import acner
+from .twitter_emotion import TwitterEmotion
 from .germeval import Germeval
+
 

@@ -11,6 +11,13 @@ from scipy.stats import pearsonr
 from sklearn.metrics import mean_squared_error
 
 from datasets import STS
+from datasets import STSLarge
+from datasets import PPDB
+from datasets import Quora
+from datasets import Sick
+from datasets import SemEval
+from datasets import StackExchange
+
 from datasets import id2seq
 from pyqt_fit import npr_methods
 from models import SiameseCNNLSTM
@@ -18,8 +25,9 @@ from models import SiameseCNNLSTM
 # Model Parameters
 tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character "
                                             "embedding (default: 300)")
-tf.flags.DEFINE_boolean("train_embeddings", True, "Dimensionality of character "
-                                            "embedding (default: 300)")
+tf.flags.DEFINE_boolean("train_embeddings", True, "True if you want to train "
+                                                  "the embeddings False "
+                                                  "otherwise")
 tf.flags.DEFINE_float("dropout", 0.5, "Dropout keep probability ("
                                               "default: 1.0)")
 tf.flags.DEFINE_float("l2_reg_beta", 0.0, "L2 regularizaion lambda ("
@@ -28,7 +36,9 @@ tf.flags.DEFINE_integer("hidden_units", 128, "Number of hidden units of the "
                                              "RNN Cell")
 tf.flags.DEFINE_integer("n_filters", 500, "Number of filters ")
 tf.flags.DEFINE_integer("rnn_layers", 2, "Number of layers in the RNN")
-tf.flags.DEFINE_string("optimizer", 'adam', "Number of layers in the RNN")
+tf.flags.DEFINE_string("optimizer", 'adam', "Which Optimizer to use. "
+                    "Available options are: adam, gradient_descent, adagrad, "
+                    "adadelta, rmsprop")
 tf.flags.DEFINE_integer("learning_rate", 0.0001, "Learning Rate")
 tf.flags.DEFINE_boolean("bidirectional", True, "Flag to have Bidirectional "
                                                "LSTMs")
@@ -58,6 +68,10 @@ tf.flags.DEFINE_string("data_dir", "/scratch", "path to the root of the data "
                                            "directory")
 tf.flags.DEFINE_string("experiment_name", "STS_CNN_LSTM", "Name of your model")
 tf.flags.DEFINE_string("mode", "train", "'train' or 'test or results'")
+tf.flags.DEFINE_string("dataset", "STS", "'The Semantic Text Similarity "
+                 "dataset that you want to use. Available options "
+                   "are STS, STSLarge, PPDB, Quora, Sick, SemEval"
+                                 "or StackExchange")
 
 
 FLAGS = tf.flags.FLAGS
@@ -306,11 +320,37 @@ def non_parametric_regression(xs, ys, method):
 
 
 if __name__ == '__main__':
-    sts = STS()
-    #sts.create_vocabulary(name="my_sts")
+    ds = None
+
+    ds = None
+    if FLAGS.dataset == 'STS':
+        print('Using the STS dataset')
+        ds = STS()
+    elif FLAGS.dataset == 'STSLarge':
+        print('Using the STSLarge dataset')
+        ds = STSLarge()
+    elif FLAGS.dataset == 'PPDB':
+        print('Using the PPDB dataset')
+        ds = PPDB()
+    elif FLAGS.dataset == 'Quora':
+        print('Using the Quora dataset')
+        ds = Quora()
+    elif FLAGS.dataset == 'Sick':
+        print('Using the Sick dataset')
+        ds = Sick()
+    elif FLAGS.dataset == 'SemEval':
+        print('Using the SemEval dataset')
+        ds = SemEval()
+    elif FLAGS.dataset == 'StackExchange':
+        print('Using the StackExchange dataset')
+        ds = StackExchange()
+    else:
+        raise NotImplementedError('Dataset {} has not been '
+                                  'implemented yet'.format(FLAGS.dataset))
+
     if FLAGS.mode == 'train':
-        train(sts, sts.metadata_path, sts.w2v)
+        train(ds, ds.metadata_path, ds.w2v)
     elif FLAGS.mode == 'test':
-        test(sts, sts.metadata_path, sts.w2v)
+        test(ds, ds.metadata_path, ds.w2v)
     elif FLAGS.mode == 'results':
-        results(sts, sts.metadata_path, sts.w2v)
+        results(ds, ds.metadata_path, ds.w2v)
