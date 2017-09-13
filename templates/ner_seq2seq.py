@@ -14,8 +14,9 @@ from tflearn.data_utils import to_categorical
 # Model Parameters
 tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character "
                                             "embedding (default: 300)")
-tf.flags.DEFINE_boolean("train_embeddings", True, "Dimensionality of character "
-                                            "embedding (default: 300)")
+tf.flags.DEFINE_boolean("train_embeddings", True, "True if you want to train "
+                                                  "the embeddings False "
+                                                  "otherwise")
 tf.flags.DEFINE_float("dropout", 0.5, "Dropout keep probability ("
                                               "default: 1.0)")
 tf.flags.DEFINE_float("l2_reg_beta", 0.0, "L2 regularizaion lambda ("
@@ -23,7 +24,9 @@ tf.flags.DEFINE_float("l2_reg_beta", 0.0, "L2 regularizaion lambda ("
 tf.flags.DEFINE_integer("hidden_units", 128, "Number of hidden units of the "
                                              "RNN Cell")
 tf.flags.DEFINE_integer("rnn_layers", 2, "Number of layers in the RNN")
-tf.flags.DEFINE_string("optimizer", 'adam', "Number of layers in the RNN")
+tf.flags.DEFINE_string("optimizer", 'adam', "Which Optimizer to use. "
+                    "Available options are: adam, gradient_descent, adagrad, "
+                    "adadelta, rmsprop")
 tf.flags.DEFINE_integer("learning_rate", 0.0001, "Learning Rate")
 tf.flags.DEFINE_boolean("bidirectional", True, "Flag to have Bidirectional "
                                                "LSTMs")
