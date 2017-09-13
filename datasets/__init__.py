@@ -47,7 +47,7 @@ def get_spacy(lang='en'):
         # TODO: support other spaCy English models
         spacy_nlp = spacy.load('en_core_web_md')
     if spacy_nlp_de is None:
-        spacy_nlp_de = spacy.load('de')
+        spacy_nlp_de = spacy.load('de_core_news_md')
 
     return spacy_nlp if lang == 'en' else spacy_nlp_de
 
