@@ -58,7 +58,7 @@ class Gersen(object):
         self.w2v = datasets.load_w2v(self.w2v_path)
 
         self.train = DataSet(train_data, (self.w2i, self.i2w), shuffle)
-        self.validate = DataSet(validate_data, (self.w2i, self.i2w), shuffle)
+        self.validation = DataSet(validate_data, (self.w2i, self.i2w), shuffle)
         self.test = DataSet(test_data, (self.w2i, self.i2w), shuffle)
 
     def load_anew(self, train_validate_split, test_split, shuffle=True):
@@ -99,7 +99,7 @@ class Gersen(object):
 
     def initialize_datasets(self, train_data, validate_data, test_data, shuffle):
         self.train = DataSet(train_data, (self.w2i, self.i2w), shuffle)
-        self.validate = DataSet(validate_data, (self.w2i, self.i2w), shuffle)
+        self.validation = DataSet(validate_data, (self.w2i, self.i2w), shuffle)
         self.test = DataSet(test_data, (self.w2i, self.i2w), shuffle)
 
     def load_data(self, path):
@@ -145,7 +145,7 @@ class Gersen(object):
             self.w2v = datasets.preload_w2v(self.w2i)
             datasets.save_w2v(self.w2v_path, self.w2v)
         self.train.set_vocab((self.w2i, self.i2w))
-        self.validate.set_vocab((self.w2i, self.i2w))
+        self.validation.set_vocab((self.w2i, self.i2w))
         self.test.set_vocab((self.w2i, self.i2w))
 
     def create_vocabulary(self, all_files, min_frequency=5, tokenizer='spacy',

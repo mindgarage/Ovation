@@ -86,53 +86,37 @@ class SiameseCNNLSTM(object):
         :return: 
         """
         # Build the Embedding layer as the first layer of the model
-        with tf.name_scope("embedding"):
-            # The Tensorflow variable for the embedding matrix
-            # If you intend to use vocabulary expansion later. You will need
-            # the name of thos variable later
-            self.embedding_weights, self.config = ops.embedding_layer(
-                        metadata_path, embedding_weights, name="sts_embedding")
 
-            # Sentence_1 represented as embeddings by using an embedding lookup
-            self.embedded_s1 = tf.nn.embedding_lookup(self.embedding_weights,
-                                                      self.input_s1)
-
-            # Sentence_2 represented as embeddings by using an embedding lookup
-            self.embedded_s2 = tf.nn.embedding_lookup(self.embedding_weights,
+        self.embedding_weights, self.config = ops.embedding_layer(
+                                        metadata_path, embedding_weights)
+        self.embedded_s1 = tf.nn.embedding_lookup(self.embedding_weights,
+                                                  self.input_s1)
+        self.embedded_s2 = tf.nn.embedding_lookup(self.embedding_weights,
                                                       self.input_s2)
 
-        with tf.name_scope("SIAMESE_CNN_LSTM"):
+        
+        self.s1_cnn_out = ops.multi_filter_conv_block(self.embedded_s1,
+                                self.args["n_filters"],
+                                dropout_keep_prob=self.args["dropout"])
+        self.s1_lstm_out = ops.lstm_block(self.s1_cnn_out,
+                                   self.args["hidden_units"],
+                                   dropout=self.args["dropout"],
+                                   layers=self.args["rnn_layers"],
+                                   dynamic=False,
+                                   bidirectional=self.args["bidirectional"])
 
-            # A Multi filter size CNN block for extracting features from the
-            # input sequences
-            self.s1_cnn_out = ops.multi_filter_conv_block(self.embedded_s1,
-                                        self.args["n_filters"],
-                                        dropout_keep_prob=self.args["dropout"])
-
-            # A BLSTM stack for extracting sequential features
-            self.s1_lstm_out = ops.lstm_block(self.s1_cnn_out,
-                                       self.args["hidden_units"],
-                                       dropout=self.args["dropout"],
-                                       layers=self.args["rnn_layers"],
-                                       dynamic=False,
-                                       bidirectional=self.args["bidirectional"])
-
-            # Reusing the variables for doing the same for the second sentence
-            self.s2_cnn_out = ops.multi_filter_conv_block(self.embedded_s2,
-                                          self.args["n_filters"], reuse=True,
-                                          dropout_keep_prob=self.args["dropout"])
-            self.s2_lstm_out = ops.lstm_block(self.s2_cnn_out,
-                                       self.args["hidden_units"],
-                                       dropout=self.args["dropout"],
-                                       layers=self.args["rnn_layers"],
-                                       dynamic=False, reuse=True,
-                                       bidirectional=self.args["bidirectional"])
-
-            # Calculate a distance between the two sentences
-            self.distance = distances.exponential(self.s1_lstm_out,
-                                                  self.s2_lstm_out)
-
-        # Calculate the loss. In this case Mean Squared Error
+        self.s2_cnn_out = ops.multi_filter_conv_block(self.embedded_s2,
+                                      self.args["n_filters"], reuse=True,
+                                      dropout_keep_prob=self.args["dropout"])
+        self.s2_lstm_out = ops.lstm_block(self.s2_cnn_out,
+                                   self.args["hidden_units"],
+                                   dropout=self.args["dropout"],
+                                   layers=self.args["rnn_layers"],
+                                   dynamic=False, reuse=True,
+                                   bidirectional=self.args["bidirectional"])
+        self.distance = distances.exponential(self.s1_lstm_out,
+                                              self.s2_lstm_out)
+    
         with tf.name_scope("loss"):
             self.loss = losses.mean_squared_error(self.input_sim, self.distance)
 

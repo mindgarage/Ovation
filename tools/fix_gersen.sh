@@ -1,4 +1,4 @@
-cd ../data/datasets/gersen
+cd $1
 
 set -x
 

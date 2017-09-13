@@ -111,6 +111,13 @@ def embedding_layer(metadata_path=None, embedding_weights=None,
     return W, config
 
 def get_regularizer(beta=0.001):
+    """
+    Returns the L2 loss of all the trainable parameters in the graph, scaled
+    by `beta`.
+
+    Keyword arguments:
+    beta -- How much regularization we want in our loss
+    """
     t_vars = tf.trainable_variables()
     regularizer = None
     for t in t_vars:
