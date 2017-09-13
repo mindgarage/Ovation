@@ -1,6 +1,6 @@
 # Ovation
 
-![Sponsors](https://docs.google.com/drawings/d/e/2PACX-1vT8ek6nSC2UNliv7exfhoG20y1_GU1aXJoQSuZqza7z4KyxZpnfQ-XX4JyvFerMufwgked-5kAHCqAh/pub?w=396&h=100)
+![Ovation](https://docs.google.com/drawings/d/e/2PACX-1vT8ek6nSC2UNliv7exfhoG20y1_GU1aXJoQSuZqza7z4KyxZpnfQ-XX4JyvFerMufwgked-5kAHCqAh/pub?w=1172&h=259)
 
 
 (This repository is still under construction. Please let us know if you
