@@ -17,20 +17,20 @@ class Model(ABC):
 
     ```
     class MyModel(Model):
-    def create_placeholders(self):
-        pass
+        def create_placeholders(self):
+            pass
 
-    def build_model(self, metada_path=None, embedding_weights=None):
-        pass
+        def build_model(self, metada_path=None, embedding_weights=None):
+            pass
 
-    def create_scalar_summary(self, sess):
-        pass
+        def create_scalar_summary(self, sess):
+            pass
 
-    def train_step(self):
-        pass
+        def train_step(self):
+            pass
 
-    def evaluate_step(self):
-        pass
+        def evaluate_step(self):
+            pass
     ```
     """
     @abstractmethod
