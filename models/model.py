@@ -2,6 +2,7 @@ import os
 import pickle
 
 import tensorflow as tf
+from utils import ops
 
 from abc import abstractmethod, ABC
 
@@ -11,20 +12,20 @@ class Model(ABC):
     implement the missing methods for this class. The rest will be taken care by the
     utility functions written here. Of course, you can still reimplement some of the if
     they don't totally suit your needs.
-    
+
     For example, you can now create a new model with:
-    
+
     ```
     class MyModel(Model):
     def create_placeholders(self):
         pass
-    
+
     def build_model(self, metada_path=None, embedding_weights=None):
         pass
 
     def create_scalar_summary(self, sess):
         pass
- 
+
     def train_step(self):
         pass
 
@@ -39,7 +40,11 @@ class Model(ABC):
         self.save_train_options()
         self.create_placeholders()
         self.create_scalars()
- 
+
+    def create_optimizer(self):
+        self.optimizer = ops.get_optimizer(self.args["optimizer"]) \
+                                                (self.args["learning_rate"])
+
     def create_experiment_dirs(self):
         self.exp_dir = os.path.join(self.args["data_dir"],
                                'experiments', self.args["experiment_name"])
@@ -70,7 +75,7 @@ class Model(ABC):
         else:
             print('Could not find training options so using currently given '
                   'values.')
-            
+
     def save_train_options(self):
         pickle.dump(self.args, open(self.train_options_path, 'wb'))
         print('Saved Training options')
@@ -82,10 +87,15 @@ class Model(ABC):
     @abstractmethod
     def create_placeholders(self):
         pass
-    
+
     @abstractmethod
     def build_model(self, metada_path=None, embedding_weights=None):
         pass
+
+    def compute_gradients(self):
+        self.grads_and_vars = self.optimizer.compute_gradients(self.loss)
+        self.tr_op_set = self.optimizer.apply_gradients(self.grads_and_vars,
+                                              global_step=self.global_step)
 
     def create_histogram_summary(self):
         grad_summaries = []
@@ -101,11 +111,11 @@ class Model(ABC):
     @abstractmethod
     def create_scalar_summary(self, sess):
         pass
-    
+
     def initialize_saver(self):
         self.saver = tf.train.Saver(tf.global_variables(),
                                     max_to_keep=self.args["max_checkpoints"])
-        
+
     def initialize_variables(self, sess):
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
@@ -167,4 +177,4 @@ class Model(ABC):
         See any of the templates for examples on how to write it.
         """
         pass
-    
+
