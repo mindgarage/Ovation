@@ -1,4 +1,7 @@
-# Ovation framework
+# Ovation
+
+![Sponsors](https://docs.google.com/drawings/d/e/2PACX-1vQTUhvic1NW8Ev0GqI66RQuZy_2rXLGNPjVCDEqKxm-kpVCWptJ2EuUsZm6XC2HPOhDotkDwTnj-OPi/pub?w=1447&h=535)
+
 
 (This repository is still under construction. Please let us know if you
 find any issues :-) )
