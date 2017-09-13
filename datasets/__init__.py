@@ -27,7 +27,7 @@ test_split_small = 0.2
 #test_split_large = 0.3
 
 # TODO: This has to be changed if we want to make this project installable
-data_root_directory = os.path.join('/', 'scratch', 'OSA-alpha', 'data', 'datasets')
+data_root_directory = os.path.join('/', 'scratch', 'OSA', 'data', 'datasets')
 
 
 spacy_nlp = None
