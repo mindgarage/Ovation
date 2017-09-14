@@ -99,6 +99,7 @@ def embedding_layer(metadata_path=None, embedding_weights=None,
         w2v_init = tf.constant(embedding_weights, dtype=tf.float32)
         W = tf.Variable(w2v_init, trainable=trainable, name=name)
     else:
+        # `get_variable()` uses the `glorot_uniform_initializer` by default
         W = tf.get_variable(name, [vocab_size, embedding_shape],
                         trainable=trainable)
 

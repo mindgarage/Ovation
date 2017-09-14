@@ -27,7 +27,7 @@ test_split_small = 0.2
 #test_split_large = 0.3
 
 # TODO: This has to be changed if we want to make this project installable
-data_root_directory = os.path.join('/', 'scratch', 'OSA-alpha', 'data', 'datasets')
+data_root_directory = os.path.join('/', 'scratch', 'OSA', 'data', 'datasets')
 
 
 spacy_nlp = None
@@ -47,7 +47,7 @@ def get_spacy(lang='en'):
         # TODO: support other spaCy English models
         spacy_nlp = spacy.load('en_core_web_md')
     if spacy_nlp_de is None:
-        spacy_nlp_de = spacy.load('de')
+        spacy_nlp_de = spacy.load('de_core_news_md')
 
     return spacy_nlp if lang == 'en' else spacy_nlp_de
 
@@ -545,7 +545,7 @@ from .sem_eval import SemEval
 from .sick import Sick
 from .hotel_reviews import HotelReviews
 from .amazon_reviews_german import AmazonReviewsGerman
-from .acner import acner
+from .acner import Acner
 from .twitter_emotion import TwitterEmotion
 from .germeval import Germeval
 
