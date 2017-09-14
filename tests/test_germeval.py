@@ -42,9 +42,8 @@ class TestGermevalBatches(object):
 
     def test_next_batch_big_with_seq_lens(self):
         # batch of 128, rescaled, sequence lengths
-        batch, lens = self.ds.train.next_batch(
+        batch = self.ds.train.next_batch(
                         batch_size=128,
-                        return_sequence_lengths=True,
                         pad=20)
         assert_equal(len(batch.sentences), 128)
         assert_equal(len(batch.ner1), 128)
@@ -58,10 +57,10 @@ class TestGermevalBatches(object):
         #assert_true(lens == [len(x) for x in batch.x])
 
     def test_next_batch_get_raw(self):
-        batch = self.ds.train.next_batch(get_raw=True)
-        assert_is_instance(batch.sentences[0], str)
-        assert_is_instance(batch.ner1[0], str)
-        assert_is_instance(batch.ner2[0], str)
+        batch = self.ds.train.next_batch(raw=True)
+        assert_is_instance(batch.sentences[0][0], str)
+        assert_is_instance(batch.ner1[0][0], str)
+        assert_is_instance(batch.ner2[0][0], str)
 
 
 class TestGermevalCreateVocabulary(object):
@@ -94,7 +93,7 @@ class TestGermevalCreateVocabulary(object):
 def test_default_sizes():
     ds = Germeval(use_defaults=True)
     train_len = len(ds.train.data)
-    validate_len = len(ds.validate.data)
+    validate_len = len(ds.validation.data)
     test_len = len(ds.test.data)
 
     # We want to assert that the defaults are

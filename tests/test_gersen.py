@@ -37,8 +37,8 @@ class TestGersenBatches(object):
 
     def test_next_batch_big_with_seq_lens(self):
         # batch of 128, rescaled, sequence lengths
-        batch, lens = self.g.train.next_batch(batch_size=128, rescale=(0.0, 1.0),
-                        return_sequence_lengths=True, format='numerical', pad=20)
+        batch, lens = self.g.train.next_batch(batch_size=128,
+                              rescale=(0.0, 1.0), format='numerical', pad=20)
         assert_equal(len(batch.x), 128)
         assert_equal(len(batch.y), 128)
         assert_less_equal(0, batch.y[0])
@@ -49,7 +49,7 @@ class TestGersenBatches(object):
 
     def test_next_batch_get_raw(self):
         # get raw
-        batch = self.g.train.next_batch(get_raw=True)
+        batch = self.g.train.next_batch(raw=True)
         assert_is_instance(batch[0][0], str)
 
 
@@ -81,7 +81,7 @@ class TestGersenCreateVocabulary(object):
 def test_default_sizes():
     g = Gersen(use_defaults=True)
     train_len = len(g.train.data)
-    validate_len = len(g.validate.data)
+    validate_len = len(g.validation.data)
     test_len = len(g.test.data)
 
     # We want to assert that the defaults are
@@ -92,7 +92,7 @@ def test_default_sizes():
 def test_specific_sizes():
     g = Gersen(train_validate_split=0.3, test_split=0.7)
     train_len = len(g.train.data)
-    validate_len = len(g.validate.data)
+    validate_len = len(g.validation.data)
     test_len = len(g.test.data)
 
     # We want to assert that the defaults are

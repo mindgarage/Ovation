@@ -28,9 +28,9 @@ class Germeval(Acner):
         self.initialize_datasets(*all_data)
 
     def initialize_datasets(self, train_data, validate_data, test_data, shuffle=True):
-        self.train = DataSet(train_data, self.w2i, self.i2w, shuffle)
-        self.validation = DataSet(validate_data, self.w2i, self.i2w, shuffle)
-        self.test = DataSet(test_data, self.w2i, self.i2w, shuffle)
+        self.train = DataSet(train_data, self.w2i, self.i2w)
+        self.validation = DataSet(validate_data, self.w2i, self.i2w)
+        self.test = DataSet(test_data, self.w2i, self.i2w)
 
     def initialize_vocabulary(self):
         self.initialize_vocabulary_ll(['texts', 'ner1', 'ner2'], [5,1,1],
@@ -113,7 +113,7 @@ class Germeval(Acner):
 
 
 class DataSet():
-    def __init__(self, data, w2i, i2w, shuffle=True):
+    def __init__(self, data, w2i, i2w):
         self._epochs_completed = 0
         self._index_in_epoch = 0
         self.datafile = None
@@ -143,17 +143,16 @@ class DataSet():
         ner1 = data[1]
         ner2 = data[2]
 
-        if (raw):
-            return self.Batch(sentences=sentences,
-                              ner1=ner1,
-                              ner2=ner2)
-
         # Generate sequences
         sentences = self.generate_sequences(sentences, tokenizer=tokenizer[0])
         ner1 = self.generate_sequences(ner1, tokenizer=tokenizer[1])
         ner2 = self.generate_sequences(ner2, tokenizer=tokenizer[2])
 
         lengths = [len(s) for s in sentences]
+
+        if (raw):
+            return self.Batch(sentences=sentences, ner1=ner1, ner2=ner2,
+                              lengths=lengths)
         sentences = datasets.padseq(datasets.seq2id(sentences,
                                                     self.vocab_w2i[0]), pad)
         ner1 = datasets.padseq(datasets.seq2id(ner1, self.vocab_w2i[1]), pad)
@@ -165,7 +164,8 @@ class DataSet():
             ner2 = [to_categorical(n, nb_classes=len(self.vocab_w2i[2]))
                    for n in ner2]
 
-        batch = self.Batch(sentences=sentences, ner1=ner1, ner2=ner2, lengths=lengths)
+        batch = self.Batch(sentences=sentences, ner1=ner1, ner2=ner2,
+                           lengths=lengths)
 
         return batch
 

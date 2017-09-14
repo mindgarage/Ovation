@@ -222,30 +222,30 @@ class BLSTMAcner:
 
     def train_step(self, sess, text_batch, ne_batch, lengths_batch, pos_batch,
                    epochs_completed, verbose=True):
-            """
-            A single train step
-            """
-            feed_dict = {
-                self.input: text_batch,
-                self.output: ne_batch,
-                self.input_lengths: lengths_batch,
-                self.pos: pos_batch
-            }
-            ops = [self.tr_op_set, self.global_step,
-                   self.loss, self.prediction, self.accuracy]
-            if hasattr(self, 'train_summary_op'):
-                ops.append(self.train_summary_op)
-                _, step, loss, pred, acc, summaries = sess.run(ops, feed_dict)
-                self.train_summary_writer.add_summary(summaries, step)
-            else:
-                _, step, loss, pred, acc = sess.run(ops, feed_dict)
+        """
+        A single train step
+        """
+        feed_dict = {
+            self.input: text_batch,
+            self.output: ne_batch,
+            self.input_lengths: lengths_batch,
+            self.pos: pos_batch
+        }
+        ops = [self.tr_op_set, self.global_step,
+               self.loss, self.prediction, self.accuracy]
+        if hasattr(self, 'train_summary_op'):
+            ops.append(self.train_summary_op)
+            _, step, loss, pred, acc, summaries = sess.run(ops, feed_dict)
+            self.train_summary_writer.add_summary(summaries, step)
+        else:
+            _, step, loss, pred, acc = sess.run(ops, feed_dict)
 
-            if verbose:
-                time_str = datetime.datetime.now().isoformat()
-                print(("Epoch: {}\tTRAIN: {}\tCurrent Step: {}\tLoss {}\tAcc: {}"
-                      "").format(epochs_completed, time_str, step, loss, acc))
+        if verbose:
+            time_str = datetime.datetime.now().isoformat()
+            print(("Epoch: {}\tTRAIN: {}\tCurrent Step: {}\tLoss {}\tAcc: {}"
+                  "").format(epochs_completed, time_str, step, loss, acc))
 
-            return pred, loss, step, acc
+        return pred, loss, step, acc
 
     def evaluate_step(self, sess, text_batch, ne_batch, lengths_batch, pos_batch,
                       verbose=True):
