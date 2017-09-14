@@ -37,8 +37,8 @@ class TestGersenBatches(object):
 
     def test_next_batch_big_with_seq_lens(self):
         # batch of 128, rescaled, sequence lengths
-        batch, lens = self.g.train.next_batch(batch_size=128,
-                              rescale=(0.0, 1.0), format='numerical', pad=20)
+        batch = self.g.train.next_batch(batch_size=128, rescale=(0.0, 1.0),
+                                              format='numerical', pad=20)
         assert_equal(len(batch.x), 128)
         assert_equal(len(batch.y), 128)
         assert_less_equal(0, batch.y[0])
@@ -50,7 +50,7 @@ class TestGersenBatches(object):
     def test_next_batch_get_raw(self):
         # get raw
         batch = self.g.train.next_batch(raw=True)
-        assert_is_instance(batch[0][0], str)
+        assert_is_instance(batch[0][0][0], str)
 
 
 class TestGersenCreateVocabulary(object):

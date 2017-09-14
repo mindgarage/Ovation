@@ -78,7 +78,6 @@ class SentenceSentimentClassifier(Model):
         self.dev_summary_writer = tf.summary.FileWriter(self.dev_summary_dir,
                                                    sess.graph)
 
-
     def train_step(self, sess, text_batch, sentiment_batch, epochs_completed,
                    verbose=True):
             """
