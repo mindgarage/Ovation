@@ -20,3 +20,7 @@ Utils
 
  * Is `pad_sentences` described right? What is `len(data[-1])` in that function???
 
+Datasets
+========
+
+ * Make the signature of dataset.<split>.next_batch() of all the dataset same.

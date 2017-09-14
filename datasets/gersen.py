@@ -170,26 +170,32 @@ class DataSet(object):
         self.Batch = self.initialize_batch()
 
     def initialize_batch(self):
-        return collections.namedtuple('Batch', ['x', 'y'])
+        return collections.namedtuple('Batch', ['x', 'y', 'lengths'])
 
-    def next_batch(self, batch_size=64, seq_begin=False, seq_end=False,
-                   format='one_hot', rescale=None, pad=0, get_raw=False,
-                   return_sequence_lengths=False, tokenizer='spacy'):
-        # format: either 'one_hot' or 'numerical'
-        # rescale: if format is 'numerical', then this should be a tuple
-        #           (min, max)
-        samples = self.data[self._index_in_epoch:self._index_in_epoch+batch_size]
+    def next_batch(self, batch_size=64, format='one_hot', rescale=None,
+                   pad=0, raw=False, tokenizer='spacy'):
 
-        if (len(samples) < batch_size):
-            self._epochs_completed += 1
-            self._index_in_epoch = 0
-
+        samples = None
+        if self._index_in_epoch + batch_size > len(self.data):
+            samples = self.data[self._index_in_epoch: len(self.data)]
             random.shuffle(self.data)
-
-            missing_samples = batch_size - len(samples)
+            missing_samples = batch_size - (
+            len(self.data) - self._index_in_epoch)
+            self._epochs_completed += 1
             samples.extend(self.data[0:missing_samples])
+            self._index_in_epoch = missing_samples
+        else:
+            samples = self.data[
+                      self._index_in_epoch:self._index_in_epoch + batch_size]
+            self._index_in_epoch += batch_size
 
         x, y = zip(*samples)
+        # Generate sequences
+        x = self.generate_sequences(x, tokenizer)
+        lens = [len(i) for i in x]
+
+        if (raw):
+            return self.Batch(x=x, y=y, lengths=lens)
 
         if (format == 'one_hot'):
             y = to_categorical(y, nb_classes=3)
@@ -198,19 +204,10 @@ class DataSet(object):
             datasets.validate_rescale(rescale)
             y = datasets.rescale(y, rescale, (0.0, 2.0))
 
-        if (get_raw):
-            return self.Batch(x=x, y=y)
-
-        # Generate sequences
-        x = self.generate_sequences(x, tokenizer)
-
         batch = self.Batch(
             x=datasets.padseq(datasets.seq2id(x, self.vocab_w2i), pad),
-            y=y)
+            y=y, lengths=lens)
 
-        if (return_sequence_lengths):
-            lens = [len(i) for i in x]
-            return batch, lens
         return batch
 
     def generate_sequences(self, x, tokenizer):
