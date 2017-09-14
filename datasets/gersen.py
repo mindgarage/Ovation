@@ -192,7 +192,7 @@ class DataSet(object):
         x, y = zip(*samples)
         # Generate sequences
         x = self.generate_sequences(x, tokenizer)
-        lens = [len(i) for i in x]
+        lens = [len(s) if pad == 0 else min(pad, len(s)) for s in x]
 
         if (raw):
             return self.Batch(x=x, y=y, lengths=lens)

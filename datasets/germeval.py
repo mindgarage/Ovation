@@ -148,7 +148,7 @@ class DataSet():
         ner1 = self.generate_sequences(ner1, tokenizer=tokenizer[1])
         ner2 = self.generate_sequences(ner2, tokenizer=tokenizer[2])
 
-        lengths = [len(s) for s in sentences]
+        lengths = [len(s) if pad == 0 else min(pad, len(s)) for s in sentences]
 
         if (raw):
             return self.Batch(sentences=sentences, ner1=ner1, ner2=ner2,
