@@ -10,6 +10,7 @@ cytoolz==0.8.2
 dill==0.2.7.1
 ftfy==4.4.3
 gensim==2.3.0
+gtts
 h5py==2.7.0
 html5lib==0.999999999
 idna==2.6
@@ -28,6 +29,8 @@ plac==0.9.6
 preshed==1.0.0
 progressbar2==3.34.2
 protobuf==3.4.0
+pyaudio
+pydub
 pyparsing==2.2.0
 PyQt-Fit==1.3.4
 python-dateutil==2.6.1
