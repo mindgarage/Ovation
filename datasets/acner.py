@@ -268,8 +268,8 @@ class DataSet():
         sentences = self.generate_sequences(sentences, tokenizer[0])
         pos = self.generate_sequences(pos, tokenizer[1])
         ner = self.generate_sequences(ner, tokenizer[2])
-        
-        lengths = [len(s) for s in sentences]
+
+        lengths = [len(s) if pad == 0 else min(pad, len(s)) for s in sentences]
 
         if (raw) :
             return self.Batch(sentences=sentences, pos=pos, ner=ner, lengths=lengths)
