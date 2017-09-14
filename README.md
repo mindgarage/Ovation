@@ -57,6 +57,9 @@ cd Ovation
 # Install all the requirements
 pip install -r requirements.txt
 sh setup_packages.sh
+
+# Tell python where to find the modules
+export PYTHONPATH=$PWD
 ```
 
 Now you are all set to use the code!
