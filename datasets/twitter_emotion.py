@@ -125,10 +125,14 @@ class DataSet(object):
             row = self.datafile.readline()
             if row == '':
                 self._epochs_completed += 1
-                self.datafiles.seek(0)
+                self.datafile.seek(0)
                 continue
             cols = row.strip().split('\t')
-            tweet, emo = cols[0], int(cols[1])
+            try:
+                tweet, emo = cols[0], int(cols[1])
+            except Exception as e:
+                print('Invalid data instance. Skipping line.')
+                continue
             text.append(datasets.tokenize(tweet, tokenizer))
             emotion.append(emo)
 
