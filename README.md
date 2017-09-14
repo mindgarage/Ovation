@@ -54,6 +54,7 @@ cd Ovation
 
 # Install all the requirements
 pip install -r requirements.txt
+sh setup_packages.sh
 ```
 
 Now you are all set to use the code!
