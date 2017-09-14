@@ -23,10 +23,10 @@ from pydub import AudioSegment
 
 threshold = 2.0 ** 16
 volume_normalization = 0.5
-volume_normalization = None
-keyword = "Ovation"
+keyword = "Hello"
 language = "en"
-
+greeting = "Hello"
+timeout = 3
 
 audio = pyaudio.PyAudio()
 
@@ -46,10 +46,11 @@ def open_stream():
 
 def say(text):
     tts = gTTS(text=text, lang=language)
-    with tempfile.NamedTemporaryFile(suffix='.mp3') as f:
+    with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f:
         tmpfile = f.name
-        tts.save(tmpfile)
-        sound = AudioSegment.from_mp3(tmpfile)
+    tts.save(tmpfile)
+    sound = AudioSegment.from_mp3(tmpfile)
+    os.remove(tmpfile)
 
     with tempfile.SpooledTemporaryFile() as f:
         sound.export(f, format="wav")
@@ -138,7 +139,7 @@ def check_for_keyword(frames):
         keyword_found = False
         if keyword.upper() in ", ".join(transcribed):
             keyword_found = True
-            say("Hello")
+            say(greeting)
         return keyword_found
 
 
@@ -177,7 +178,7 @@ def passive_listen():
                 recording = False
 
 
-def active_listen(timeout=3):
+def active_listen():
     n = 16 * timeout
     frames = []
     for frame in record():
@@ -190,13 +191,14 @@ def active_listen(timeout=3):
 
 def act(transcription):
     for alt in transcription:        
-#        if u"TEST" in alt:
+#        if u"test" in alt:
 #            print("test")
 #            url = u"http://"
-#            urllib.urlopen(url)
+#            response = urllib.urlopen(url)
+#            say(response)
 #            break
         print(transcription) 
-        say(transcription[0])
+        say(transcription[0].lower())
         break
 
 
