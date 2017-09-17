@@ -38,6 +38,8 @@ cd /path/to/where/you/want/to/put/your/environment
 
 # Create the virtual environment with Python 3
 virtualenv -p 3 name_of_your_enviroment
+# Activate the virtual environmnent
+source name_of_your_enviroment/bin/activate
 ```
 
 This will create a new folder with the name `name_of_your_enviroment`. With
@@ -54,6 +56,10 @@ cd Ovation
 
 # Install all the requirements
 pip install -r requirements.txt
+sh setup_packages.sh
+
+# Tell python where to find the modules
+export PYTHONPATH=$PWD
 ```
 
 Now you are all set to use the code!

@@ -88,7 +88,7 @@ class TestSTS(object):
                                                         max_vocab_size, name)
 
         self.validate_vocabulary(in_new_vocab, in_new_w2v, in_new_metadata)
-        assert_equal(self.ds.vocab_size, 24)
+        assert_equal(self.ds.vocab_size, 42)
 
     def test_create_vocab_nltk_tokenizer(self):
         name, min_frequency, tokenizer, downcase, max_vocab_size = \

@@ -252,7 +252,7 @@ def mark_entities(data, lang='en'):
     for line in data:
         marked_line = []
         for token in line:
-            tok = spacy_nlp(token, lang)
+            tok = spacy_nlp(token, lang)[0]
             if tok.ent_type_ != '':
                 marked_line.append('BOE')
                 marked_line.append(token)

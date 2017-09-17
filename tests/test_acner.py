@@ -40,9 +40,8 @@ class TestAcnerBatches(object):
 
     def test_next_batch_big_with_seq_lens(self):
         # batch of 128, rescaled, sequence lengths
-        batch, lens = self.ds.train.next_batch(
+        batch = self.ds.train.next_batch(
                         batch_size=128,
-                        return_sequence_lengths=True,
                         pad=20)
         assert_equal(len(batch.sentences), 128)
         assert_equal(len(batch.pos), 128)
@@ -56,10 +55,10 @@ class TestAcnerBatches(object):
         #assert_true(lens == [len(x) for x in batch.x])
 
     def test_next_batch_get_raw(self):
-        batch = self.ds.train.next_batch(get_raw=True)
-        assert_is_instance(batch.sentences[0], str)
-        assert_is_instance(batch.pos[0], str)
-        assert_is_instance(batch.ner[0], str)
+        batch = self.ds.train.next_batch(raw=True)
+        assert_is_instance(batch.sentences[0][0], str)
+        assert_is_instance(batch.pos[0][0], str)
+        assert_is_instance(batch.ner[0][0], str)
 
 
 class TestAcnerCreateVocabulary(object):
@@ -92,7 +91,7 @@ class TestAcnerCreateVocabulary(object):
 def test_default_sizes():
     ds = Acner(use_defaults=True)
     train_len = len(ds.train.data)
-    validate_len = len(ds.validate.data)
+    validate_len = len(ds.validation.data)
     test_len = len(ds.test.data)
 
     # We want to assert that the defaults are
@@ -103,7 +102,7 @@ def test_default_sizes():
 def test_specific_sizes():
     ds = Acner(train_validate_split=0.3, test_split=0.7)
     train_len = len(ds.train.data)
-    validate_len = len(ds.validate.data)
+    validate_len = len(ds.validation.data)
     test_len = len(ds.test.data)
 
     # We want to assert that the defaults are
