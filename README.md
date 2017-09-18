@@ -40,6 +40,7 @@ cd /path/to/where/you/want/to/put/your/environment
 pip install virtualenv
 # Create the virtual environment with Python 3
 virtualenv -p 3 name_of_your_enviroment
+## (sometimes one have to provide the full path to python, e.g. on mac: virtualenv -p /usr/local/bin/python3 )
 # Activate the virtual environmnent
 source name_of_your_enviroment/bin/activate
 ```
