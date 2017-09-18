@@ -36,6 +36,8 @@ You can create a new virtual environment with:
 # environment
 cd /path/to/where/you/want/to/put/your/environment
 
+# Install virtualenv
+pip install virtualenv
 # Create the virtual environment with Python 3
 virtualenv -p 3 name_of_your_enviroment
 # Activate the virtual environmnent
@@ -59,7 +61,7 @@ pip install -r requirements.txt
 sh setup_packages.sh
 
 # Tell python where to find the modules
-export PYTHONPATH=$PWD
+export PYTHONPATH=$PYTHONPATH:$PWD
 ```
 
 Now you are all set to use the code!
