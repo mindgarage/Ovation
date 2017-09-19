@@ -28,7 +28,7 @@ tasks and models.
 
 ## Installation
 
-This code expects Python 3.4+. We recommend you to use a virtual environment.
+This code expects Python 3.4+ and portaudio (as dependency for PyAudio) installed. We recommend you to use a virtual python environment.
 You can create a new virtual environment with:
 
 ```sh
@@ -36,8 +36,11 @@ You can create a new virtual environment with:
 # environment
 cd /path/to/where/you/want/to/put/your/environment
 
+# Install virtualenv
+pip install virtualenv
 # Create the virtual environment with Python 3
 virtualenv -p 3 name_of_your_enviroment
+## (sometimes one have to provide the full path to python, e.g. on mac: virtualenv -p /usr/local/bin/python3 )
 # Activate the virtual environmnent
 source name_of_your_enviroment/bin/activate
 ```
@@ -59,7 +62,7 @@ pip install -r requirements.txt
 sh setup_packages.sh
 
 # Tell python where to find the modules
-export PYTHONPATH=$PWD
+export PYTHONPATH=$PYTHONPATH:$PWD
 ```
 
 Now you are all set to use the code!
