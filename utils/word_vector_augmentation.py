@@ -1,4 +1,5 @@
 import spacy
+import os
 import numpy as np
 
 from tflearn.data_utils import to_categorical
@@ -73,7 +74,7 @@ def get_senti_wordnet():
     return senti_wordnet
 
 
-pos_list = [
+tag_list = [
     ".",
     ",",
     "-LRB-",
@@ -132,8 +133,42 @@ pos_list = [
     "HVS"
 ]
 
-tag_list = []
-entity_list = []
+pos_list = [
+    "PUNCT",
+    "SYM",
+    "X",
+    "ADJ",
+    "VERB",
+    "CONJ",
+    "NUM",
+    "DET",
+    "ADV",
+    "ADP",
+    "NOUN",
+    "PART",
+    "PRON",
+    "SPACE",
+    "INTJ",
+]
+entity_list = [
+    "PERSON",
+    "NORP",
+    "FACILITY",
+    "ORG",
+    "GPE",
+    "LOC",
+    "PRODUCT",
+    "EVENT",
+    "WORK_OF_ART",
+    "LANGUAGE",
+    "DATE",
+    "TIME",
+    "PERCENT",
+    "MONEY",
+    "QUANTITY",
+    "ORDINAL",
+    "CARDINAL"
+]
 
 def augment_word_vector(nlp, sentence):
     all_augmented_word_vectors = []
