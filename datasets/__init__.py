@@ -405,7 +405,7 @@ def new_vocabulary(files, dataset_path, min_frequency, tokenizer,
                 'PRODUCT', 'EVENT', 'WORK_OF_ART', 'LANGUAGE',
                 'DATE', 'TIME', 'PERCENT', 'MONEY', 'QUANTITY',
                 'ORDINAL', 'CARDINAL', 'BOE', 'EOE']
-    
+
     with open(vocab_path, 'w') as vf, open(metadata_path, 'w') as mf:
         mf.write('word\tfreq\n')
         mf.write('PAD\t1\n')
@@ -417,7 +417,7 @@ def new_vocabulary(files, dataset_path, min_frequency, tokenizer,
         vf.write('SEQ_BEGIN\t1\n')
         vf.write('SEQ_END\t1\n')
         vf.write('UNK\t1\n')
-        
+
         for ent in entities :
             vf.write("{}\t{}\n".format(ent, 1))
             mf.write("{}\t{}\n".format(ent, 1))
@@ -548,5 +548,4 @@ from .amazon_reviews_german import AmazonReviewsGerman
 from .acner import Acner
 from .twitter_emotion import TwitterEmotion
 from .germeval import Germeval
-
 
