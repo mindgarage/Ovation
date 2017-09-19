@@ -4,4 +4,5 @@ from .sentence_sentiment_classifier import SentenceSentimentClassifier
 from .blstm_acner import BLSTMAcner
 from .blstm_germeval import BLSTMGermEval
 from .ner_seq2seq import AcnerSeq2Seq
+from .blstm_quora import BLSTM_Quora
 from .model import Model
