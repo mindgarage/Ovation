@@ -24,6 +24,7 @@ tf.flags.DEFINE_boolean("train_embeddings", True, "True if you want to train "
                                                   "otherwise")
 tf.flags.DEFINE_float("dropout", 0.5, "Dropout keep probability ("
                                               "default: 1.0)")
+tf.flags.DEFINE_float("sentiment_size", 0.5, "Size of the sentiment vector. Default 128")
 tf.flags.DEFINE_float("l2_reg_beta", 0.0, "L2 regularizaion lambda ("
                                             "default: 0.0)")
 tf.flags.DEFINE_integer("hidden_units", 128, "Number of hidden units of the "
