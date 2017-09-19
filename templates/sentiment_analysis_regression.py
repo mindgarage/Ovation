@@ -115,7 +115,7 @@ def train(dataset, metadata_path, w2v):
                                rescale=[0.0, 1.0], pad=spr_model.args["sequence_length"])
             pco, mse, loss, step = spr_model.train_step(sess,
                                                  train_batch.text,
-                                                 train_batch.ratings,
+                                                 train_batch.ratings_overall,
                                                  dataset.train.epochs_completed)
 
             if step % FLAGS.evaluate_every == 0:
@@ -173,12 +173,12 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
         val_batch = dataset.next_batch(FLAGS.batch_size, rescale=[0.0, 1.0],
                                        pad=model.args["sequence_length"])
         val_loss, val_pco, val_mse, val_ratings = \
-            model.evaluate_step(sess, val_batch.text, val_batch.ratings)
+            model.evaluate_step(sess, val_batch.text, val_batch.ratings_overall)
         avg_val_loss += val_mse
         avg_val_pco += val_pco[0]
         all_dev_review += id2seq(val_batch.text, dataset.vocab_i2w)
         all_dev_score += val_ratings.tolist()
-        all_dev_gt += val_batch.ratings
+        all_dev_gt += val_batch.ratings_overall
         dev_itr += 1
 
         if mode == 'test' and dataset.epochs_completed == 1: break
