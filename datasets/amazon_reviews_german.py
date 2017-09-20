@@ -2,13 +2,13 @@ import os
 import json
 import datasets
 import collections
-
+from glob import glob
 from tflearn.data_utils import to_categorical
 
 
 class AmazonReviewsGerman(object):
     def __init__(self, train_validation_split=None, test_split=None,
-                 use_defaults=True):
+                 use_defaults=True, data_balancing=True):
         if train_validation_split is not None or test_split is not None or \
                 use_defaults is False:
             raise NotImplementedError('This Dataset does not implement '
@@ -22,8 +22,10 @@ class AmazonReviewsGerman(object):
         self.dataset = "amazon_reviews_de"
         self.dataset_path = os.path.join(datasets.data_root_directory,
                                          self.dataset)
+        self.data_balancing = data_balancing
         self.data_path = os.path.join(self.dataset_path, 'reviews.txt')
         self.train_path = os.path.join(self.dataset_path, 'train', 'train.txt')
+        self.train_path_list = glob(os.path.join(self.dataset_path, 'train', 'output_file_*.txt'))
         self.validation_path = os.path.join(self.dataset_path, 'validation',
                                             'validation.txt')
         self.test_path = os.path.join(self.dataset_path, 'test', 'test.txt')
@@ -36,7 +38,10 @@ class AmazonReviewsGerman(object):
         self.w2v = datasets.load_w2v(self.w2v_path)
 
         self.vocab_size = len(self.w2i)
-        self.train = DataSet(self.train_path, (self.w2i, self.i2w))
+        if not self.data_balancing:
+            self.train = DataSet(self.train_path, (self.w2i, self.i2w))
+        else:
+            self.train = DataSetBalanced(self.train_path_list, (self.w2i, self.i2w))
         self.validation = DataSet(self.validation_path, (self.w2i, self.i2w))
         self.test = DataSet(self.test_path, (self.w2i, self.i2w))
         self.__refresh(load_w2v=False)
@@ -66,6 +71,101 @@ class AmazonReviewsGerman(object):
         self.train.set_vocab((self.w2i, self.i2w))
         self.validation.set_vocab((self.w2i, self.i2w))
         self.test.set_vocab((self.w2i, self.i2w))
+
+
+class DataSetBalanced(object):
+    def __init__(self, path_list, vocab):
+
+        self.path_list = path_list
+        self._epochs_completed = 0
+        self.vocab_w2i = vocab[0]
+        self.vocab_i2w = vocab[1]
+        self.datafile = None
+
+        self.Batch = collections.namedtuple('Batch', ['text', 'sentences',
+                                                     'ratings', 'titles', 'lengths'])
+
+    def open(self):
+        self.datafile = open(self.path_list[0], 'r')
+
+    def close(self):
+        self.datafile.close()
+
+    def next_batch(self, batch_size=64, seq_begin=False, seq_end=False,
+                   rescale=None, pad=0, raw=False, mark_entities=False,
+                   tokenizer='spacy', sentence_pad=0, one_hot=False):
+        if not self.datafile:
+            raise Exception('The dataset needs to be open before being used. '
+                            'Please call dataset.open() before calling '
+                            'dataset.next_batch()')
+        text, sentences, ratings, titles, lengths = [], [], [], [], []
+
+        while len(text) < batch_size:
+            row = self.datafile.readline()
+            if row == '':
+                self._epochs_completed += 1
+                self.close()
+                self.datafile = open(self.path_list[self.epochs_completed % len(self.path_list)])
+                continue
+            json_obj = json.loads(row.strip())
+            text.append(datasets.tokenize(json_obj["review_text"], tokenizer))
+            lengths.append(len(text[-1]))
+            sentences.append(datasets.sentence_tokenizer(json_obj["review_text"]))
+            ratings.append(int(json_obj["review_rating"]))
+            titles.append(datasets.tokenize(json_obj["review_header"]))
+
+
+        if rescale is not None and one_hot == False:
+            ratings = datasets.rescale(ratings, rescale, [1.0, 5.0])
+        elif rescale is None and one_hot == True:
+            ratings = [x - 1 for x in ratings]
+            ratings = to_categorical(ratings, nb_classes=5)
+        elif rescale is None and one_hot == False:
+            pass
+        else:
+            raise ValueError('rescale and one_hot cannot be set together')
+        if mark_entities:
+            text = datasets.mark_entities(text, lang='de')
+            titles = datasets.mark_entities(titles, lang='de')
+            sentences = [datasets.mark_entities(sentence, lang='de')
+                         for sentence in sentences]
+
+        if not raw:
+            text = datasets.seq2id(text[:batch_size], self.vocab_w2i, seq_begin,
+                                  seq_end)
+            titles = datasets.seq2id(titles[:batch_size], self.vocab_w2i,
+                                     seq_begin, seq_end)
+            sentences = [datasets.seq2id(sentence, self.vocab_w2i,
+                     seq_begin, seq_end) for sentence in sentences[:batch_size]]
+        else:
+            text = datasets.append_seq_markers(text[:batch_size],
+                                               seq_begin, seq_end)
+            titles = datasets.append_seq_markers(titles[:batch_size],
+                                                 seq_begin, seq_end)
+            sentences = [datasets.append_seq_markers(sentence, seq_begin,
+                         seq_end) for sentence in sentences[:batch_size]]
+
+        if pad != 0:
+            text = datasets.padseq(text[:batch_size], pad, raw)
+            titles = datasets.padseq(titles[:batch_size], pad, raw)
+            sentences = [datasets.padseq(sentence, pad, raw) for sentence in
+                         sentences[:batch_size]]
+        if sentence_pad != 0:
+            sentences = [datasets.pad_sentences(sentence, sentence_pad, raw) for
+                         sentence in sentences[:batch_size]]
+
+        batch = self.Batch(text=text, sentences=sentences,
+                           ratings=ratings, titles=titles, lengths=lengths)
+        return batch
+
+    def set_vocab(self, vocab):
+        self.vocab_w2i = vocab[0]
+        self.vocab_i2w = vocab[1]
+
+    @property
+    def epochs_completed(self):
+        return self._epochs_completed
+
 
 
 class DataSet(object):

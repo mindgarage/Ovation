@@ -17,11 +17,14 @@ def main(args):
 
         for i in range(args.num_outputs):
             with open(os.path.join(args.path, args.dataset, 'train','output_file_{}.txt'.format(i)),'w') as f:
+                data_list = []
                 for j in [1,2,3,4,5]:
                     locs = np.where(ratings == j)[0][:min_samples]
                     np.random.shuffle(locs)
                     for loc in locs:
-                        f.write(text[loc]+'\n')
+                        data_list.append(text[loc])
+                shuffle(data_list)
+                _ = [f.write(item + '\n') for item in data_list]
     elif args.dataset == 'amazon_reviews_de':
         dataset_path = os.path.join(args.path, args.dataset, 'train', 'train.txt')
         with open(dataset_path, 'r') as f:
@@ -39,11 +42,14 @@ def main(args):
 
         for i in range(args.num_outputs):
             with open(os.path.join(args.path, args.dataset, 'train','output_file_{}.txt'.format(i)),'w') as f:
+                data_list = []
                 for j in [1,2,3,4,5]:
                     locs = np.where(ratings == j)[0][:min_samples]
                     np.random.shuffle(locs)
                     for loc in locs:
-                        f.write(text[loc]+'\n')
+                        data_list.append(text[loc])
+                shuffle(data_list)
+                _ = [f.write(item +'\n') for item in data_list]
     return
 
 
