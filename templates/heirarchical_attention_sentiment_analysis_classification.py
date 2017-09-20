@@ -19,6 +19,7 @@ from models import HeirarchicalAttentionSentimentClassifier
 # Model Parameters
 tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character "
                                             "embedding (default: 300)")
+tf.flags.DEFINE_integer("num_hops", 5, "num of hops")
 tf.flags.DEFINE_boolean("train_embeddings", True, "True if you want to train "
                                                   "the embeddings False "
                                                   "otherwise")
