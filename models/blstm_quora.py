@@ -1,6 +1,7 @@
 import os
 import pickle
 import datetime
+import datasets
 
 import numpy as np
 import tensorflow as tf
@@ -212,7 +213,7 @@ class AttentionBlstmQuora(BLSTM_Quora):
             for i in range(self.args['num_hops']):
                 # get a new episode
                 print('==> generating episode', i)
-                episode, attn = ops.generate_episode(prev_memory, self.sentiment, fact_vecs, i,
+                episode, attn = ops.generate_episode(prev_memory, self.sentiment, self.facts, i,
                                                      self.args['hidden_units'], self.input_length,
                                                      self.args['embedding_dim'])
                 self.attentions.append(attn)
@@ -261,4 +262,17 @@ class AttentionBlstmQuora(BLSTM_Quora):
         with tf.name_scope("MSE"):
             self.mse, self.mse_update = tf.metrics.mean_squared_error(
                     self.input_sim, self.out,  name="mse")
+
+    # def infer(sess, sentence1, sentence2):
+    #     sentence1 = datasets.seq2id(s1s[0], self.vocab_w2i,
+    #                                 seq_begin, seq_end)
+    #     sentence2 = datasets.seq2id(s2s[0], self.vocab_w2i,
+    #                                 seq_begin, seq_end)
+    #     merge_sentences(sentence1, sentence2)
+    #
+    #     feed_dict = {
+    #         self.input: sentences
+    #     }
+    #     ops = [self.out]
+    #     return sess.run(ops, feed_dict)
 
