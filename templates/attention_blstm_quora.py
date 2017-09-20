@@ -20,7 +20,7 @@ from datasets import StackExchange
 
 from datasets import id2seq
 from pyqt_fit import npr_methods
-from models import SiameseCNNLSTM
+from models import BLSTM_Quora
 
 # Model Parameters
 tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character "
@@ -50,15 +50,15 @@ tf.flags.DEFINE_integer("max_checkpoints", 100, "Maximum number of "
 tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 300, "Number of training epochs"
                                            " (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 500, "Evaluate model on dev set "
+tf.flags.DEFINE_integer("evaluate_every", 200, "Evaluate model on dev set "
                                     "after this many steps (default: 100)")
-tf.flags.DEFINE_integer("checkpoint_every", 500, "Save model after this many"
+tf.flags.DEFINE_integer("checkpoint_every", 100, "Save model after this many"
                                                   " steps (default: 100)")
 tf.flags.DEFINE_integer("max_dev_itr", 100, "max munber of dev iterations "
                               "to take for in-training evaluation")
 
 # Misc Parameters
-tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allowx' device soft"
+tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft"
                                                       " device placement")
 tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops"
                                                        " on devices")
@@ -66,7 +66,7 @@ tf.flags.DEFINE_boolean("verbose", True, "Log Verbosity Flag")
 tf.flags.DEFINE_float("gpu_fraction", 0.5, "Fraction of GPU to use")
 tf.flags.DEFINE_string("data_dir", "/scratch", "path to the root of the data "
                                            "directory")
-tf.flags.DEFINE_string("experiment_name", "QUORA_CNN_LSTM", "Name of your model")
+tf.flags.DEFINE_string("experiment_name", "QUORA_BLSTM_WITH_DELIMITER", "Name of your model")
 tf.flags.DEFINE_string("mode", "train", "'train' or 'test or results'")
 tf.flags.DEFINE_string("dataset", "Quora", "'The Semantic Text Similarity "
                  "dataset that you want to use. Available options "
@@ -87,7 +87,7 @@ def initialize_tf_graph(metadata_path, w2v):
     print("Session Started")
 
     with sess.as_default():
-        siamese_model = SiameseCNNLSTM(FLAGS.__flags)
+        siamese_model = BLSTM_Quora(FLAGS.__flags)
         siamese_model.show_train_params()
         siamese_model.build_model(metadata_path=metadata_path,
                                   embedding_weights=w2v)
@@ -98,7 +98,6 @@ def initialize_tf_graph(metadata_path, w2v):
           'drill down this method')
     siamese_model.easy_setup(sess)
     return sess, siamese_model
-
 
 def train(dataset, metadata_path, w2v):
     print("Configuring Tensorflow Graph")
@@ -117,10 +116,14 @@ def train(dataset, metadata_path, w2v):
         tflearn.is_training(True, session=sess)
         while dataset.train.epochs_completed < FLAGS.num_epochs:
             train_batch = dataset.train.next_batch(batch_size=FLAGS.batch_size,
-                                   pad=siamese_model.args["sequence_length"])
-            pco, mse, loss, step =  siamese_model.train_step(sess,
-                                                 train_batch.s1,
-                                                 train_batch.s2,
+                                                    pad=0)
+
+            sents_batch = datasets.merge_sentences(train_batch,
+                                        siamese_model.args["sequence_length"],
+                                        FLAGS.batch_size)
+
+            pco, mse, loss, step = siamese_model.train_step(sess,
+                                                 sents_batch,
                                                  train_batch.sim,
                                                  dataset.train.epochs_completed)
 
@@ -184,9 +187,14 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
     while (dev_itr < max_dev_itr and max_dev_itr != 0) \
                                     or mode in ['test', 'train']:
         val_batch = dataset.next_batch(FLAGS.batch_size,
-                                       pad=model.args["sequence_length"])
+                                       pad=0)
+
+        sents_batch = datasets.merge_sentences(val_batch,
+                                               model.args["sequence_length"],
+                                               FLAGS.batch_size)
+
         val_loss, val_pco, val_mse, val_sim = \
-            model.evaluate_step(sess, val_batch.s1, val_batch.s2, val_batch.sim)
+            model.evaluate_step(sess, sents_batch, val_batch.sim)
         avg_val_loss += val_mse
         avg_val_pco += val_pco[0]
         all_dev_x1 += id2seq(val_batch.s1, dataset.vocab_i2w)

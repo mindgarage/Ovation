@@ -99,12 +99,6 @@ def initialize_tf_graph(metadata_path, w2v):
     siamese_model.easy_setup(sess)
     return sess, siamese_model
 
-def merge_sentences(train_batch):
-    sentences_1 = train_batch.s1
-    delimiter = np.zeros( (FLAGS.batch_size, 1) )
-    sentences_2 = train_batch.s2
-    return np.concatenate((sentences_1, delimiter, sentences_2), axis=1)
-
 def train(dataset, metadata_path, w2v):
     print("Configuring Tensorflow Graph")
     with tf.Graph().as_default():
@@ -122,15 +116,16 @@ def train(dataset, metadata_path, w2v):
         tflearn.is_training(True, session=sess)
         while dataset.train.epochs_completed < FLAGS.num_epochs:
             train_batch = dataset.train.next_batch(batch_size=FLAGS.batch_size,
-                                   pad=siamese_model.args["sequence_length"])
+                                   pad=0)
 
-            sents_batch = merge_sentences(train_batch)
+            sents_batch = datasets.merge_sentences(train_batch,
+                                        2*siamese_model.args["sequence_length"]+1,
+                                        FLAGS.batch_size)
 
-            pco, mse, loss, step =  siamese_model.train_step(sess,
+            pco, mse, loss, step = siamese_model.train_step(sess,
                                                  sents_batch,
                                                  train_batch.sim,
                                                  dataset.train.epochs_completed)
-
 
             if step % FLAGS.evaluate_every == 0:
                 avg_val_loss, avg_val_pco, _ = evaluate(sess=sess,
@@ -191,9 +186,11 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
     while (dev_itr < max_dev_itr and max_dev_itr != 0) \
                                     or mode in ['test', 'train']:
         val_batch = dataset.next_batch(FLAGS.batch_size,
-                                       pad=model.args["sequence_length"])
+                                       pad=0)
 
-        sents_batch = merge_sentences(val_batch)
+        sents_batch = datasets.merge_sentences(val_batch,
+                                               2*model.args["sequence_length"]+1,
+                                               FLAGS.batch_size)
 
         val_loss, val_pco, val_mse, val_sim = \
             model.evaluate_step(sess, sents_batch, val_batch.sim)

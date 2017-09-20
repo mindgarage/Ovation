@@ -41,7 +41,8 @@ def multi_filter_conv_block(input, n_filters, reuse=False,
 
 
 def lstm_block(input, hidden_units=128, dropout=0.5, reuse=False, layers=1,
-                           dynamic=True, return_seq=False, bidirectional=False):
+                           dynamic=True, return_seq=False, bidirectional=False,
+                           return_state=False):
     output = None
     prev_output = input
     for n_layer in range(layers):
@@ -57,7 +58,7 @@ def lstm_block(input, hidden_units=128, dropout=0.5, reuse=False, layers=1,
             output = tflearn.lstm(prev_output, hidden_units, dropout=dropout,
                                   dynamic=dynamic, reuse=reuse,
                                   scope='lstm_{}'.format(n_layer),
-                                  return_seq=return_seq)
+                                  return_seq=return_seq, return_state=return_state)
         else:
             if n_layer < layers - 1:
                 output = bidirectional_rnn(prev_output,
@@ -79,7 +80,8 @@ def lstm_block(input, hidden_units=128, dropout=0.5, reuse=False, layers=1,
                                                      reuse=reuse),
                                        dynamic=dynamic,
                                        scope='blstm_{}'.format(n_layer),
-                                       return_seq=return_seq)
+                                       return_seq=return_seq,
+                                       return_states=return_state)
     return output
 
 
@@ -173,11 +175,16 @@ def get_attention(embedding_dim, query, prev_memory, fact, reuse=False):
 def generate_episode(memory, query, facts, hop_index, hidden_size, input_lengths, embedding_dim):
     """Generate episode by applying attention to current fact vectors through a modified GRU"""
 
+    # attentions is a list of Batch elements with length T
     attentions = [tf.squeeze(
         get_attention(embedding_dim, query, memory, fv, bool(hop_index) or bool(i)), axis=1)
         for i, fv in enumerate(tf.unstack(facts, axis=1))]
 
-    attentions = tf.transpose(tf.stack(attentions))
+    # stacked attentions is T x B
+    stacked_attentions = tf.stack(attentions)
+
+    # after transpose, it becomes B x T
+    attentions = tf.transpose(stacked_attentions)
     attention_softmax = tf.nn.softmax(attentions)
 
     attentions = tf.expand_dims(attention_softmax, axis=-1)
@@ -185,6 +192,7 @@ def generate_episode(memory, query, facts, hop_index, hidden_size, input_lengths
     reuse = True if hop_index > 0 else False
 
     # concatenate fact vectors and attentions for input into attGRU
+    # gru_inputs is B x T x (F+1)
     gru_inputs = tf.concat([facts, attentions], 2)
 
     with tf.variable_scope('attention_gru', reuse=reuse):
@@ -209,3 +217,21 @@ def embed_sentences(sentences, embedding_weights):
         sent_features.append(sent_feature)
     stacked_features = tf.stack(sent_features)
     return stacked_features, review_sent_feature
+
+def blstm_attention_layer(memory, weights, facts, hidden_size, input_lengths = 61):
+    """Generate episode by applying attention to current fact vectors through a modified GRU"""
+    memory_reordered = tf.transpose(memory, perm=[2,0,1])
+
+    attentions = tf.tensordot(memory_reordered, weights, axes=[[2], [2]])
+    attentions_softmax = tf.nn.softmax(attentions)
+    attentions_softmax = tf.expand_dims(attentions_softmax, axis=-1)
+
+
+    attended_memories = tf.multiply(facts, attentions_softmax)
+    with tf.variable_scope('attention_gru', reuse=False):
+        _, episode = tf.nn.dynamic_rnn(AttentionGRUCell(hidden_size),
+                                       attended_memories,
+                                       dtype=np.float64,
+                                       sequence_length=input_lengths)
+
+    return episode, attentions_softmax
