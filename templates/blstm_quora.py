@@ -101,8 +101,9 @@ def initialize_tf_graph(metadata_path, w2v):
 
 def merge_sentences(train_batch):
     sents_batch = []
-    for i in train_batch:
-        pass
+    sentences_1 = train_batch.s1
+    sentences_2 = train_batch.s2
+    print ("Blah")
 
     return sents_batch
 
