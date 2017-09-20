@@ -20,7 +20,7 @@ from datasets import StackExchange
 
 from datasets import id2seq
 from pyqt_fit import npr_methods
-from models import BLSTM_Quora
+from models import AttentionBlstmQuora
 
 # Model Parameters
 tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character "
@@ -50,9 +50,9 @@ tf.flags.DEFINE_integer("max_checkpoints", 100, "Maximum number of "
 tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 300, "Number of training epochs"
                                            " (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 200, "Evaluate model on dev set "
+tf.flags.DEFINE_integer("evaluate_every", 300, "Evaluate model on dev set "
                                     "after this many steps (default: 100)")
-tf.flags.DEFINE_integer("checkpoint_every", 100, "Save model after this many"
+tf.flags.DEFINE_integer("checkpoint_every", 300, "Save model after this many"
                                                   " steps (default: 100)")
 tf.flags.DEFINE_integer("max_dev_itr", 100, "max munber of dev iterations "
                               "to take for in-training evaluation")
@@ -66,8 +66,9 @@ tf.flags.DEFINE_boolean("verbose", True, "Log Verbosity Flag")
 tf.flags.DEFINE_float("gpu_fraction", 0.5, "Fraction of GPU to use")
 tf.flags.DEFINE_string("data_dir", "/scratch", "path to the root of the data "
                                            "directory")
-tf.flags.DEFINE_string("experiment_name", "QUORA_BLSTM_WITH_DELIMITER", "Name of your model")
+tf.flags.DEFINE_string("experiment_name", "QUORA_ATTENTION", "Name of your model")
 tf.flags.DEFINE_string("mode", "train", "'train' or 'test or results'")
+tf.flags.DEFINE_integer("num_hops", 5, "num of hops")
 tf.flags.DEFINE_string("dataset", "Quora", "'The Semantic Text Similarity "
                  "dataset that you want to use. Available options "
                    "are STS, STSLarge, PPDB, Quora, Sick, SemEval"
@@ -87,7 +88,7 @@ def initialize_tf_graph(metadata_path, w2v):
     print("Session Started")
 
     with sess.as_default():
-        siamese_model = BLSTM_Quora(FLAGS.__flags)
+        siamese_model = AttentionBlstmQuora(FLAGS.__flags)
         siamese_model.show_train_params()
         siamese_model.build_model(metadata_path=metadata_path,
                                   embedding_weights=w2v)
@@ -116,17 +117,18 @@ def train(dataset, metadata_path, w2v):
         tflearn.is_training(True, session=sess)
         while dataset.train.epochs_completed < FLAGS.num_epochs:
             train_batch = dataset.train.next_batch(batch_size=FLAGS.batch_size,
-                                                    pad=0)
+                                   pad=0)
 
-            sents_batch = datasets.merge_sentences(train_batch,
-                                        siamese_model.args["sequence_length"],
-                                        FLAGS.batch_size)
+            sents_batch, lens = datasets.merge_sentences(train_batch,
+                                        2*siamese_model.args["sequence_length"]+1,
+                                        FLAGS.batch_size,
+                                        get_lens=True)
 
             pco, mse, loss, step = siamese_model.train_step(sess,
                                                  sents_batch,
                                                  train_batch.sim,
+                                                 lens,
                                                  dataset.train.epochs_completed)
-
 
             if step % FLAGS.evaluate_every == 0:
                 avg_val_loss, avg_val_pco, _ = evaluate(sess=sess,
@@ -189,12 +191,13 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
         val_batch = dataset.next_batch(FLAGS.batch_size,
                                        pad=0)
 
-        sents_batch = datasets.merge_sentences(val_batch,
-                                               model.args["sequence_length"],
-                                               FLAGS.batch_size)
+        sents_batch, lens = datasets.merge_sentences(val_batch,
+                                               2*model.args["sequence_length"]+1,
+                                               FLAGS.batch_size,
+                                               get_lens=True)
 
         val_loss, val_pco, val_mse, val_sim = \
-            model.evaluate_step(sess, sents_batch, val_batch.sim)
+            model.evaluate_step(sess, sents_batch, val_batch.sim, lens)
         avg_val_loss += val_mse
         avg_val_pco += val_pco[0]
         all_dev_x1 += id2seq(val_batch.s1, dataset.vocab_i2w)
@@ -328,7 +331,6 @@ def non_parametric_regression(xs, ys, method):
 
 
 if __name__ == '__main__':
-    ds = None
 
     ds = None
     if FLAGS.dataset == 'STS':

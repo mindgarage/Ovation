@@ -534,12 +534,16 @@ def paths_exist(paths_list):
     return True
 
 
-def merge_sentences(train_batch, length, batch_size):
+def merge_sentences(train_batch, length, batch_size,
+                    get_lens=False):
     sentences_1 = [i[0:30] for i in train_batch.s1]
     sentences_2 = [i[0:30] for i in train_batch.s2]
 
     merged = [ (s1 + [0] + s2 + [0 for _ in range(length - (len(s1) + len(s2) +1 ) )])#[0:61]
                for s1, s2 in zip(sentences_1, sentences_2)]
+    if get_lens:
+        lens = [len(s1) + len(s2) + 1 for s1, s2 in zip(sentences_1, sentences_2)]
+        return merged, lens
     return merged
 
 

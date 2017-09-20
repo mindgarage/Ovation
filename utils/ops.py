@@ -3,6 +3,7 @@ import tensorflow as tf
 import numpy as np
 
 from .attention_gru_cell import AttentionGRUCell
+from tensorflow.contrib.rnn import GRUCell
 from tflearn.layers.core import dropout
 from tflearn.layers.conv import conv_1d
 from tflearn.layers.conv import max_pool_1d
@@ -196,9 +197,9 @@ def generate_episode(memory, query, facts, hop_index, hidden_size, input_lengths
     gru_inputs = tf.concat([facts, attentions], 2)
 
     with tf.variable_scope('attention_gru', reuse=reuse):
-        _, episode = tf.nn.dynamic_rnn(AttentionGRUCell(hidden_size),
+        _, episode = tf.nn.dynamic_rnn(GRUCell(hidden_size),
                                        gru_inputs,
-                                       dtype=np.float64,
+                                       dtype=np.float32,
                                        sequence_length=input_lengths)
     return episode, attention_softmax
 
