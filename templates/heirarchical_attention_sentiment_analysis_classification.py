@@ -14,7 +14,7 @@ from datasets import AmazonReviewsGerman
 from datasets import HotelReviews
 from datasets import id2seq
 from pyqt_fit import npr_methods
-from models import SentenceSentimentClassifier
+from models import HeirarchicalAttentionSentimentClassifier
 
 # Model Parameters
 tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character "
@@ -24,7 +24,9 @@ tf.flags.DEFINE_boolean("train_embeddings", True, "True if you want to train "
                                                   "otherwise")
 tf.flags.DEFINE_float("dropout", 0.5, "Dropout keep probability ("
                                               "default: 1.0)")
-tf.flags.DEFINE_float("sentiment_size", 0.5, "Size of the sentiment vector. Default 128")
+tf.flags.DEFINE_integer("sentiment_size", 128, "Size of the sentiment vector."
+                                               " Default 128")
+tf.flags.DEFINE_integer("num_hops", 5, "Number of hops. Defaults to 5")
 tf.flags.DEFINE_float("l2_reg_beta", 0.0, "L2 regularizaion lambda ("
                                             "default: 0.0)")
 tf.flags.DEFINE_integer("hidden_units", 128, "Number of hidden units of the "
@@ -83,7 +85,7 @@ def initialize_tf_graph(metadata_path, w2v):
     print("Session Started")
 
     with sess.as_default():
-        model = SentenceSentimentClassifier(FLAGS.__flags)
+        model = HeirarchicalAttentionSentimentClassifier(FLAGS.__flags)
         model.show_train_params()
         model.build_model(metadata_path=metadata_path,
                                   embedding_weights=w2v)

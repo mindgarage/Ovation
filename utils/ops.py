@@ -147,7 +147,7 @@ def get_optimizer(name='adam'):
 
 
 # Taken from https://github.com/barronalex/Dynamic-Memory-Networks-in-TensorFlow/blob/master/dmn_plus.py
-def get_attention(self, query, prev_memory, fact, reuse=False):
+def get_attention(embedding_dim, query, prev_memory, fact, reuse=False):
     """Use question vector and previous memory to create scalar attention for current fact"""
     with tf.variable_scope("attention", reuse=reuse):
         features = [fact * query,
@@ -158,7 +158,7 @@ def get_attention(self, query, prev_memory, fact, reuse=False):
         feature_vec = tf.concat(features, 1)
 
         attention = tf.contrib.layers.fully_connected(feature_vec,
-                                                      self.config.embed_size,
+                                                      embedding_dim,
                                                       activation_fn=tf.nn.tanh,
                                                       reuse=reuse, scope="fc1")
 
@@ -170,17 +170,17 @@ def get_attention(self, query, prev_memory, fact, reuse=False):
     return attention
 
 
-def generate_episode(self, memory, query, facts, hop_index):
+def generate_episode(memory, query, facts, hop_index, hidden_size, input_lengths, embedding_dim):
     """Generate episode by applying attention to current fact vectors through a modified GRU"""
 
     attentions = [tf.squeeze(
-        get_attention(query, memory, fv, bool(hop_index) or bool(i)), axis=1)
+        get_attention(embedding_dim, query, memory, fv, bool(hop_index) or bool(i)), axis=1)
         for i, fv in enumerate(tf.unstack(facts, axis=1))]
 
     attentions = tf.transpose(tf.stack(attentions))
-    self.attentions.append(attentions)
-    attentions = tf.nn.softmax(attentions)
-    attentions = tf.expand_dims(attentions, axis=-1)
+    attention_softmax = tf.nn.softmax(attentions)
+
+    attentions = tf.expand_dims(attention_softmax, axis=-1)
 
     reuse = True if hop_index > 0 else False
 
@@ -188,9 +188,8 @@ def generate_episode(self, memory, query, facts, hop_index):
     gru_inputs = tf.concat([facts, attentions], 2)
 
     with tf.variable_scope('attention_gru', reuse=reuse):
-        _, episode = tf.nn.dynamic_rnn(AttentionGRUCell(self.config.hidden_size),
+        _, episode = tf.nn.dynamic_rnn(AttentionGRUCell(hidden_size),
                                        gru_inputs,
-                                       dtype=np.float32,
-                                       sequence_length=self.input_len_placeholder
-                                       )
-    return episode
+                                       dtype=np.float64,
+                                       sequence_length=input_lengths)
+    return episode, attention_softmax
