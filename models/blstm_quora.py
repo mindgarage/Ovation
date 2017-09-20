@@ -22,7 +22,7 @@ class BLSTM_Quora(Model):
     """
     def create_placeholders(self):
         self.input = tf.placeholder(tf.int32, [None,
-                                              self.args.get("sequence_length")],
+                                              self.args.get("sequence_length")*2],
                                        name="input")
 
         self.input_sim = tf.placeholder(tf.float32, [None], name="input_sim")
