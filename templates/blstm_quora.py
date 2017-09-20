@@ -100,12 +100,9 @@ def initialize_tf_graph(metadata_path, w2v):
     return sess, siamese_model
 
 def merge_sentences(train_batch):
-    sents_batch = []
     sentences_1 = train_batch.s1
     sentences_2 = train_batch.s2
-    print ("Blah")
-
-    return sents_batch
+    return np.concatenate((sentences_1, sentences_2), axis=1)
 
 def train(dataset, metadata_path, w2v):
     print("Configuring Tensorflow Graph")
