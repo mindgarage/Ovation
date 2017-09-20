@@ -13,7 +13,7 @@ from tflearn.layers.core import fully_connected
 from tensorflow.contrib.tensorboard.plugins import projector
 
 
-class SentenceSentimentRegressor(Model):
+class HeirarchicalAttentionSentimentClassifier(Model):
     """
     A LSTM network for predicting the Sentiment of a sentence.
     """
@@ -22,6 +22,7 @@ class SentenceSentimentRegressor(Model):
                       self.args.get("sequence_length")], name="input_s1")
         self.sentiment = tf.placeholder(tf.float32, [None],
                                             name="input_sentiment")
+        self.input_length = tf.placeholder(tf.int32, shape=(None,))
 
     def create_scalar_summary(self, sess):
         # Summaries for loss and accuracy
@@ -49,11 +50,13 @@ class SentenceSentimentRegressor(Model):
 
     def build_model(self, metadata_path=None, embedding_weights=None):
 
-        with tf.name_scope("embedding"):
-            self.embedding_weights, self.config = ops.embedding_layer(
-                                            metadata_path, embedding_weights)
-            self.embedded_text = tf.nn.embedding_lookup(self.embedding_weights,
-                                                        self.input)
+        #with tf.name_scope("embedding"):
+        self.embedding_weights, self.config = ops.embedding_layer(
+                                        metadata_path, embedding_weights)
+        self.embedded_text = tf.nn.embedding_lookup(self.embedding_weights,
+                                                    self.input)
+
+        self.sentiment = tf.get_variable('sentiment', [self.args['sentiment_size']])
 
         with tf.name_scope("CNN_LSTM"):
             self.cnn_out = ops.multi_filter_conv_block(self.embedded_text,
@@ -81,6 +84,27 @@ class SentenceSentimentRegressor(Model):
         with tf.name_scope("MSE"):
             self.mse, self.mse_update = tf.metrics.mean_squared_error(
                     self.sentiment, self.out,  name="mse")
+
+    def get_input_representation(self, embeddings):
+        """Get fact (sentence) vectors via embedding, positional encoding and bi-directional GRU"""
+        # get word vectors from embedding
+        inputs = tf.nn.embedding_lookup(embeddings, self.input)
+
+        # use encoding to get sentence representation
+        inputs = tf.reduce_sum(inputs * self.encoding, 2)
+
+        forward_gru_cell = tf.contrib.rnn.GRUCell(self.config.rnn_size)
+        backward_gru_cell = tf.contrib.rnn.GRUCell(self.config.rnn_size)
+        outputs, _ = tf.nn.bidirectional_dynamic_rnn(forward_gru_cell, backward_gru_cell, inputs,
+                                                     dtype=tf.float32, sequence_length=self.input_length)
+
+        # f<-> = f-> + f<-
+        fact_vecs = tf.reduce_sum(tf.stack(outputs), axis=0)
+
+        # apply dropout
+        fact_vecs = tf.nn.dropout(fact_vecs, self.dropout_placeholder)
+
+        return fact_vecs
 
     def train_step(self, sess, text_batch, sent_batch,
                    epochs_completed, verbose=True):

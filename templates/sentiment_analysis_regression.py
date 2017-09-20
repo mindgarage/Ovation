@@ -145,7 +145,7 @@ def maybe_save_checkpoint(sess, min_validation_loss, val_loss, step, model):
         tf.train.write_graph(sess.graph.as_graph_def(), model.checkpoint_prefix,
                              "graph" + str(step) + ".pb", as_text=False)
         print("Saved model {} with avg_mse={} checkpoint"
-              " to {}\n".format(step, min_validation_loss,
+              " to {}\n".format(step, val_loss,
                                 model.checkpoint_prefix))
         return val_loss
     return min_validation_loss

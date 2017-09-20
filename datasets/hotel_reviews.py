@@ -79,7 +79,7 @@ class DataSet(object):
 
         self.Batch = collections.namedtuple('Batch', ['text',
                   'sentences', 'ratings_service', 'ratings_cleanliness',
-                  'ratings_overall', 'ratings_value', 'ratings_sleep_quality',
+                  'ratings', 'ratings_value', 'ratings_sleep_quality',
                   'ratings_rooms', 'titles', 'helpful_votes'])
 
     def open(self):
@@ -187,7 +187,7 @@ class DataSet(object):
         batch = self.Batch(text=text, sentences=sentences,
                            ratings_service=ratings_service,
                            ratings_cleanliness=ratings_cleanliness,
-                           ratings_overall=ratings_overall,
+                           ratings=ratings_overall,
                            ratings_value=ratings_value,
                            ratings_sleep_quality=ratings_sleep_quality,
                            ratings_rooms=ratings_rooms,

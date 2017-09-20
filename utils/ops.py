@@ -2,6 +2,7 @@ import tflearn
 import tensorflow as tf
 import numpy as np
 
+from .attention_gru_cell import AttentionGRUCell
 from tflearn.layers.core import dropout
 from tflearn.layers.conv import conv_1d
 from tflearn.layers.conv import max_pool_1d
@@ -143,3 +144,53 @@ def get_optimizer(name='adam'):
     else:
         print('Could not find {} optimizer. Loading Adam instead'.format(name))
         return tf.train.AdamOptimizer
+
+
+# Taken from https://github.com/barronalex/Dynamic-Memory-Networks-in-TensorFlow/blob/master/dmn_plus.py
+def get_attention(self, query, prev_memory, fact, reuse=False):
+    """Use question vector and previous memory to create scalar attention for current fact"""
+    with tf.variable_scope("attention", reuse=reuse):
+        features = [fact * query,
+                    fact * prev_memory,
+                    tf.abs(fact - query),
+                    tf.abs(fact - prev_memory)]
+
+        feature_vec = tf.concat(features, 1)
+
+        attention = tf.contrib.layers.fully_connected(feature_vec,
+                                                      self.config.embed_size,
+                                                      activation_fn=tf.nn.tanh,
+                                                      reuse=reuse, scope="fc1")
+
+        attention = tf.contrib.layers.fully_connected(attention,
+                                                      1,
+                                                      activation_fn=None,
+                                                      reuse=reuse, scope="fc2")
+
+    return attention
+
+
+def generate_episode(self, memory, query, facts, hop_index):
+    """Generate episode by applying attention to current fact vectors through a modified GRU"""
+
+    attentions = [tf.squeeze(
+        get_attention(query, memory, fv, bool(hop_index) or bool(i)), axis=1)
+        for i, fv in enumerate(tf.unstack(facts, axis=1))]
+
+    attentions = tf.transpose(tf.stack(attentions))
+    self.attentions.append(attentions)
+    attentions = tf.nn.softmax(attentions)
+    attentions = tf.expand_dims(attentions, axis=-1)
+
+    reuse = True if hop_index > 0 else False
+
+    # concatenate fact vectors and attentions for input into attGRU
+    gru_inputs = tf.concat([facts, attentions], 2)
+
+    with tf.variable_scope('attention_gru', reuse=reuse):
+        _, episode = tf.nn.dynamic_rnn(AttentionGRUCell(self.config.hidden_size),
+                                       gru_inputs,
+                                       dtype=np.float32,
+                                       sequence_length=self.input_len_placeholder
+                                       )
+    return episode
