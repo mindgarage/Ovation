@@ -23,7 +23,7 @@ class BLSTM_Quora(Model):
     def create_placeholders(self):
         self.input = tf.placeholder(tf.int32, [None,
                                               self.args.get("sequence_length")],
-                                       name="input_s1")
+                                       name="input")
 
         self.input_sim = tf.placeholder(tf.float32, [None], name="input_sim")
 
@@ -46,7 +46,7 @@ class BLSTM_Quora(Model):
         self.dense2 = fully_connected(dropped_out, 128)
         dropped_out = dropout(self.dense2, keep_prob=0.8)
 
-        self.dense3 = fully_connected(dropped_out, 1)
+        self.dense3 = tf.squeeze(fully_connected(dropped_out, 1))
 
         with tf.name_scope("loss"):
             #self.loss = self.cost()

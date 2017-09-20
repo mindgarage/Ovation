@@ -20,7 +20,7 @@ from datasets import StackExchange
 
 from datasets import id2seq
 from pyqt_fit import npr_methods
-from models import SiameseCNNLSTM
+from models import BLSTM_Quora
 
 # Model Parameters
 tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character "
@@ -66,9 +66,9 @@ tf.flags.DEFINE_boolean("verbose", True, "Log Verbosity Flag")
 tf.flags.DEFINE_float("gpu_fraction", 0.5, "Fraction of GPU to use")
 tf.flags.DEFINE_string("data_dir", "/scratch", "path to the root of the data "
                                            "directory")
-tf.flags.DEFINE_string("experiment_name", "STS_CNN_LSTM", "Name of your model")
+tf.flags.DEFINE_string("experiment_name", "QUORA_CNN_LSTM", "Name of your model")
 tf.flags.DEFINE_string("mode", "train", "'train' or 'test or results'")
-tf.flags.DEFINE_string("dataset", "STS", "'The Semantic Text Similarity "
+tf.flags.DEFINE_string("dataset", "Quora", "'The Semantic Text Similarity "
                  "dataset that you want to use. Available options "
                    "are STS, STSLarge, PPDB, Quora, Sick, SemEval"
                                  "or StackExchange")
@@ -87,7 +87,7 @@ def initialize_tf_graph(metadata_path, w2v):
     print("Session Started")
 
     with sess.as_default():
-        siamese_model = SiameseCNNLSTM(FLAGS.__flags)
+        siamese_model = BLSTM_Quora(FLAGS.__flags)
         siamese_model.show_train_params()
         siamese_model.build_model(metadata_path=metadata_path,
                                   embedding_weights=w2v)
