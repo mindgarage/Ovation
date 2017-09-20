@@ -137,14 +137,15 @@ class HeirarchicalAttentionSentimentClassifier(Model):
         fact_vecs = dropout(fact_vecs, self.args['dropout'])
         return fact_vecs
 
-    def train_step(self, sess, text_batch, sent_batch,
+    def train_step(self, sess, text_batch, sent_batch, lengths,
                    epochs_completed, verbose=True):
             """
             A single train step
             """
             feed_dict = {
                 self.input: text_batch,
-                self.sentiment: sent_batch
+                self.sentiment_: sent_batch,
+                self.input_length: lengths
             }
             ops = [self.tr_op_set, self.global_step, self.loss, self.output]
             if hasattr(self, 'train_summary_op'):
@@ -165,19 +166,19 @@ class HeirarchicalAttentionSentimentClassifier(Model):
                         time_str, step, loss, pco, mse))
             return pco, mse, loss, step
 
-    def evaluate_step(self, sess, text_batch, sent_batch, verbose=True):
+    def evaluate_step(self, sess, text_batch, sent_batch, lengths, verbose=True):
         """
         A single evaluation step
         """
         feed_dict = {
             self.input: text_batch,
-            self.sentiment: sent_batch
+            self.sentiment_: sent_batch,
+            self.input_length: lengths
         }
         ops = [self.global_step, self.loss, self.output]
         if hasattr(self, 'dev_summary_op'):
             ops.append(self.dev_summary_op)
-            step, loss, sentiment, summaries = sess.run(ops,
-                                                                  feed_dict)
+            step, loss, sentiment, summaries = sess.run(ops, feed_dict)
             self.dev_summary_writer.add_summary(summaries, step)
         else:
             step, loss, sentiment = sess.run(ops, feed_dict)
