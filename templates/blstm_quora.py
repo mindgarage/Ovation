@@ -66,7 +66,7 @@ tf.flags.DEFINE_boolean("verbose", True, "Log Verbosity Flag")
 tf.flags.DEFINE_float("gpu_fraction", 0.5, "Fraction of GPU to use")
 tf.flags.DEFINE_string("data_dir", "/scratch", "path to the root of the data "
                                            "directory")
-tf.flags.DEFINE_string("experiment_name", "QUORA_CNN_LSTM", "Name of your model")
+tf.flags.DEFINE_string("experiment_name", "QUORA_BLSTM_WITH_DELIMITER", "Name of your model")
 tf.flags.DEFINE_string("mode", "train", "'train' or 'test or results'")
 tf.flags.DEFINE_string("dataset", "Quora", "'The Semantic Text Similarity "
                  "dataset that you want to use. Available options "
@@ -101,8 +101,9 @@ def initialize_tf_graph(metadata_path, w2v):
 
 def merge_sentences(train_batch):
     sentences_1 = train_batch.s1
+    delimiter = np.zeros( (FLAGS.batch_size, 1) )
     sentences_2 = train_batch.s2
-    return np.concatenate((sentences_1, sentences_2), axis=1)
+    return np.concatenate((sentences_1, delimiter, sentences_2), axis=1)
 
 def train(dataset, metadata_path, w2v):
     print("Configuring Tensorflow Graph")
