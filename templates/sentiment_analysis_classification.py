@@ -22,6 +22,9 @@ tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character "
 tf.flags.DEFINE_boolean("train_embeddings", True, "True if you want to train "
                                                   "the embeddings False "
                                                   "otherwise")
+tf.flags.DEFINE_boolean("data_balancing", True, "True if you want to use "
+                                                  "data balancing during "
+                                                  "training")
 tf.flags.DEFINE_float("dropout", 0.5, "Dropout keep probability ("
                                               "default: 1.0)")
 tf.flags.DEFINE_float("l2_reg_beta", 0.0, "L2 regularizaion lambda ("
@@ -319,10 +322,10 @@ if __name__ == '__main__':
     ds = None
     if FLAGS.dataset == 'amazon_de':
         print('Using the Amazon Reviews DE dataset')
-        ds = AmazonReviewsGerman()
+        ds = AmazonReviewsGerman(data_balancing=FLAGS.data_balancing)
     elif FLAGS.dataset == 'hotel_reviews':
         print('Using the Amazon Reviews DE dataset')
-        ds = HotelReviews()
+        ds = HotelReviews(data_balancing=FLAGS.data_balancing)
     else:
         raise NotImplementedError('Dataset {} has not been '
                                   'implemented yet'.format(FLAGS.dataset))
