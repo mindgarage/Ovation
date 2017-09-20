@@ -22,7 +22,7 @@ class SentimentRegressorSentence(Model):
                       self.args.get("sequence_length")], name="input_review_words")
         self.sentiment = tf.placeholder(tf.float32, [None],
                                             name="input_sentiment")
-        self.sentences = tf.placeholder(tf.float32, [None, self.args['max_sentences'], self.args["sequence_length"]],
+        self.sentences = tf.placeholder(tf.float32, [self.args['batch_size'], self.args['max_sentences'], self.args["sequence_length"]],
                                         name="input_review_sentences")
 
     def create_scalar_summary(self, sess):
