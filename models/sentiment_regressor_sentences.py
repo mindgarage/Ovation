@@ -13,7 +13,7 @@ from tflearn.layers.core import fully_connected
 from tensorflow.contrib.tensorboard.plugins import projector
 
 
-class SentenceSentimentRegressor(Model):
+class SentimentRegressorSentence(Model):
     """
     A LSTM network for predicting the Sentiment of a sentence.
     """
@@ -22,7 +22,7 @@ class SentenceSentimentRegressor(Model):
                       self.args.get("sequence_length")], name="input_review_words")
         self.sentiment = tf.placeholder(tf.float32, [None],
                                             name="input_sentiment")
-        self.sentiment = tf.placeholder(tf.float32, [None, self.args['max_sentences'], self.args["sequence_length"]],
+        self.sentences = tf.placeholder(tf.float32, [None, self.args['max_sentences'], self.args["sequence_length"]],
                                         name="input_review_sentences")
 
     def create_scalar_summary(self, sess):
@@ -57,6 +57,8 @@ class SentenceSentimentRegressor(Model):
         self.embedded_text = tf.nn.embedding_lookup(self.embedding_weights,
                                                     self.input)
 
+        self.embedded_sentences, _ = ops.embed_sentences(self.sentences, self.embedding_weights)
+
         with tf.name_scope("CNN_LSTM"):
             self.cnn_out = ops.multi_filter_conv_block(self.embedded_text,
                                         self.args["n_filters"],
@@ -67,7 +69,9 @@ class SentenceSentimentRegressor(Model):
                                        layers=self.args["rnn_layers"],
                                        dynamic=False,
                                        bidirectional=self.args["bidirectional"])
-            self.out = tf.squeeze(fully_connected(self.lstm_out, 1, activation='sigmoid'))
+            self.concat_features_sent_words = tf.concat([self.lstm_out, self.embedded_sentences], axis=-1)
+            self.out = tf.squeeze(fully_connected(self.concat_features_sent_words, 1,
+                                                  activation='sigmoid'))
 
         with tf.name_scope("loss"):
             self.loss = losses.mean_squared_error(self.sentiment, self.out)
@@ -84,14 +88,15 @@ class SentenceSentimentRegressor(Model):
             self.mse, self.mse_update = tf.metrics.mean_squared_error(
                     self.sentiment, self.out,  name="mse")
 
-    def train_step(self, sess, text_batch, sent_batch,
+    def train_step(self, sess, text_batch, sent_batch, sentense_batch,
                    epochs_completed, verbose=True):
             """
             A single train step
             """
             feed_dict = {
                 self.input: text_batch,
-                self.sentiment: sent_batch
+                self.sentiment: sent_batch,
+                self.sentences: sentense_batch
             }
             ops = [self.tr_op_set, self.global_step, self.loss, self.out]
             if hasattr(self, 'train_summary_op'):
@@ -112,13 +117,14 @@ class SentenceSentimentRegressor(Model):
                         time_str, step, loss, pco, mse))
             return pco, mse, loss, step
 
-    def evaluate_step(self, sess, text_batch, sent_batch, verbose=True):
+    def evaluate_step(self, sess, text_batch, sent_batch,  sentense_batch, verbose=True):
         """
         A single evaluation step
         """
         feed_dict = {
             self.input: text_batch,
-            self.sentiment: sent_batch
+            self.sentiment: sent_batch,
+            self.sentences: sentense_batch
         }
         ops = [self.global_step, self.loss, self.out, self.pco,
                self.pco_update, self.mse, self.mse_update]

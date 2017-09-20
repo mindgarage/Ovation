@@ -77,7 +77,7 @@ class DataSet(object):
         self.vocab_i2w = vocab[1]
         self.datafile = None
 
-        self.Batch = collections.namedtuple('Batch', ['text', 'lengths',
+        self.Batch = collections.namedtuple('Batch', ['text', 'lengths', 'sentence_lengths',
                   'sentences', 'ratings_service', 'ratings_cleanliness',
                   'ratings', 'ratings_value', 'ratings_sleep_quality',
                   'ratings_rooms', 'titles', 'helpful_votes'])
@@ -95,9 +95,9 @@ class DataSet(object):
             raise Exception('The dataset needs to be open before being used. '
                             'Please call dataset.open() before calling '
                             'dataset.next_batch()')
-        text, sentences, ratings_service, ratings_cleanliness, \
-        ratings_overall, ratings_value, ratings_sleep_quality, ratings_rooms, \
-        titles, helpful_votes, lengths = [], [], [], [], [], [], [], [], [], [], []
+        text, sentences, ratings_service, ratings_cleanliness, ratings_overall,\
+        ratings_value, ratings_sleep_quality, ratings_rooms, titles, helpful_votes,\
+        lengths = [], [], [], [], [], [], [], [], [], [], []
 
         while len(text) < batch_size:
             row = self.datafile.readline()
