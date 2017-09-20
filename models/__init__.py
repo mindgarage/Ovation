@@ -5,3 +5,4 @@ from .blstm_acner import BLSTMAcner
 from .blstm_germeval import BLSTMGermEval
 from .ner_seq2seq import AcnerSeq2Seq
 from .model import Model
+from .heirarchical_attention_sentiment_classifier import HeirarchicalAttentionSentimentClassifier

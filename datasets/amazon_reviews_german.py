@@ -78,7 +78,7 @@ class DataSet(object):
         self.datafile = None
 
         self.Batch = collections.namedtuple('Batch', ['text', 'sentences',
-                                                     'ratings', 'titles'])
+                                                     'ratings', 'titles', 'lengths'])
 
     def open(self):
         self.datafile = open(self.path, 'r')
@@ -93,7 +93,7 @@ class DataSet(object):
             raise Exception('The dataset needs to be open before being used. '
                             'Please call dataset.open() before calling '
                             'dataset.next_batch()')
-        text, sentences, ratings, titles = [], [], [], []
+        text, sentences, ratings, titles, lengths = [], [], [], [], []
 
         while len(text) < batch_size:
             row = self.datafile.readline()
@@ -103,10 +103,12 @@ class DataSet(object):
                 continue
             json_obj = json.loads(row.strip())
             text.append(datasets.tokenize(json_obj["review_text"], tokenizer))
+            lengths.append(len(text[-1]))
             sentences.append(datasets.sentence_tokenizer(json_obj["review_text"]))
             ratings.append(int(json_obj["review_rating"]))
             titles.append(datasets.tokenize(json_obj["review_header"]))
-        
+
+
         if rescale is not None and one_hot == False:
             ratings = datasets.rescale(ratings, rescale, [1.0, 5.0])
         elif rescale is None and one_hot == True:
@@ -147,7 +149,7 @@ class DataSet(object):
                          sentence in sentences[:batch_size]]
 
         batch = self.Batch(text=text, sentences=sentences,
-                           ratings=ratings, titles=titles)
+                           ratings=ratings, titles=titles, lengths=lengths)
         return batch
 
     def set_vocab(self, vocab):
