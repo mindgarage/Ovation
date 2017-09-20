@@ -14,11 +14,13 @@ from datasets import AmazonReviewsGerman
 from datasets import HotelReviews
 from datasets import id2seq
 from pyqt_fit import npr_methods
-from models import SentenceSentimentRegressor
+from models import HeirarchicalAttentionSentimentClassifier
 
 # Model Parameters
 tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character "
                                             "embedding (default: 300)")
+tf.flags.DEFINE_integer("sentiment_size", 128, "sentiment size")
+tf.flags.DEFINE_integer("num_hops", 5, "num of hops")
 tf.flags.DEFINE_boolean("train_embeddings", True, "True if you want to train "
                                                   "the embeddings False "
                                                   "otherwise")
@@ -82,7 +84,7 @@ def initialize_tf_graph(metadata_path, w2v):
     print("Session Started")
 
     with sess.as_default():
-        spr_model = SentenceSentimentRegressor(FLAGS.__flags)
+        spr_model = HeirarchicalAttentionSentimentClassifier(FLAGS.__flags)
         spr_model.show_train_params()
         spr_model.build_model(metadata_path=metadata_path,
                                   embedding_weights=w2v)
@@ -115,7 +117,7 @@ def train(dataset, metadata_path, w2v):
                                rescale=[0.0, 1.0], pad=spr_model.args["sequence_length"])
             pco, mse, loss, step = spr_model.train_step(sess,
                                                  train_batch.text,
-                                                 train_batch.ratings,
+                                                 train_batch.ratings, train_batch.lengths,
                                                  dataset.train.epochs_completed)
 
             if step % FLAGS.evaluate_every == 0:
@@ -175,7 +177,8 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
         val_batch = dataset.next_batch(FLAGS.batch_size, rescale=[0.0, 1.0],
                                        pad=model.args["sequence_length"])
         val_loss, val_pco, val_mse, val_ratings = \
-            model.evaluate_step(sess, val_batch.text, val_batch.ratings)
+            model.evaluate_step(sess, val_batch.text, val_batch.ratings,
+                                val_batch.lengths)
         avg_val_loss += val_mse
         avg_val_pco += val_pco[0]
         all_dev_review += id2seq(val_batch.text, dataset.vocab_i2w)

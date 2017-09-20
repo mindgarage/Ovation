@@ -6,3 +6,4 @@ from .blstm_germeval import BLSTMGermEval
 from .ner_seq2seq import AcnerSeq2Seq
 from .blstm_quora import BLSTM_Quora
 from .model import Model
+from .heirarchical_attention_sentiment_classifier import HeirarchicalAttentionSentimentClassifier

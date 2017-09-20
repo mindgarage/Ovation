@@ -6,14 +6,14 @@ import tensorflow as tf
 
 from utils import ops
 from utils import losses
-from utils import distances
+from .model import Model
 from scipy.stats import pearsonr
 from sklearn.metrics import mean_squared_error
 from tflearn.layers.core import fully_connected
 from tensorflow.contrib.tensorboard.plugins import projector
 
 
-class SentenceSentimentRegressor:
+class SentenceSentimentRegressor(Model):
     """
     A LSTM network for predicting the Sentiment of a sentence.
     """

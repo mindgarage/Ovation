@@ -77,9 +77,9 @@ class DataSet(object):
         self.vocab_i2w = vocab[1]
         self.datafile = None
 
-        self.Batch = collections.namedtuple('Batch', ['text',
+        self.Batch = collections.namedtuple('Batch', ['text', 'lengths',
                   'sentences', 'ratings_service', 'ratings_cleanliness',
-                  'ratings_overall', 'ratings_value', 'ratings_sleep_quality',
+                  'ratings', 'ratings_value', 'ratings_sleep_quality',
                   'ratings_rooms', 'titles', 'helpful_votes'])
 
     def open(self):
@@ -97,7 +97,7 @@ class DataSet(object):
                             'dataset.next_batch()')
         text, sentences, ratings_service, ratings_cleanliness, \
         ratings_overall, ratings_value, ratings_sleep_quality, ratings_rooms, \
-        titles, helpful_votes = [], [], [], [], [], [], [], [], [], []
+        titles, helpful_votes, lengths = [], [], [], [], [], [], [], [], [], [], []
 
         while len(text) < batch_size:
             row = self.datafile.readline()
@@ -107,6 +107,7 @@ class DataSet(object):
                 continue
             json_obj = json.loads(row.strip())
             text.append(datasets.tokenize(json_obj["text"], tokenizer))
+            lengths.append(len(text[-1]))
             sentences.append(datasets.sentence_tokenizer((json_obj["text"])))
             ratings_service.append(int(json_obj["ratings"]["service"])
                                                 if 'service' in json_obj['ratings']
@@ -187,11 +188,11 @@ class DataSet(object):
         batch = self.Batch(text=text, sentences=sentences,
                            ratings_service=ratings_service,
                            ratings_cleanliness=ratings_cleanliness,
-                           ratings_overall=ratings_overall,
+                           ratings=ratings_overall,
                            ratings_value=ratings_value,
                            ratings_sleep_quality=ratings_sleep_quality,
                            ratings_rooms=ratings_rooms,
-                           titles=titles, helpful_votes=helpful_votes)
+                           titles=titles, helpful_votes=helpful_votes, lengths=lengths)
         return batch
 
     def set_vocab(self, vocab):

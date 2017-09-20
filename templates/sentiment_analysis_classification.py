@@ -327,12 +327,9 @@ if __name__ == '__main__':
         raise NotImplementedError('Dataset {} has not been '
                                   'implemented yet'.format(FLAGS.dataset))
 
-    ds = AmazonReviewsGerman()
     if FLAGS.mode == 'train':
         train(ds, ds.metadata_path, ds.w2v)
     elif FLAGS.mode == 'test':
         test(ds, ds.metadata_path, ds.w2v)
     elif FLAGS.mode == 'results':
         results(ds, ds.metadata_path, ds.w2v)
-
-
