@@ -139,6 +139,7 @@ def train(dataset, metadata_path, w2v):
         dataset.validation.close()
         dataset.test.close()
 
+
 def maybe_save_checkpoint(sess, min_validation_loss, val_loss, step, model):
     if val_loss <= min_validation_loss:
         model.saver.save(sess, model.checkpoint_prefix, global_step=step)
@@ -149,6 +150,7 @@ def maybe_save_checkpoint(sess, min_validation_loss, val_loss, step, model):
                                 model.checkpoint_prefix))
         return val_loss
     return min_validation_loss
+
 
 def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
              mode='val'):
@@ -198,8 +200,6 @@ def evaluate(sess, dataset, model, step, max_dev_itr=100, verbose=True,
                 avg_pco, avg_loss))
     tflearn.is_training(True, session=sess)
     return avg_loss, avg_pco, result_set
-
-
 
 
 def test(dataset, metadata_path, w2v, rescale=None):
