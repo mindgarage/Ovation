@@ -1,6 +1,7 @@
 import os
 import pickle
 import datetime
+import datasets
 
 import numpy as np
 import tensorflow as tf
@@ -22,7 +23,7 @@ class BLSTM_Quora(Model):
     """
     def create_placeholders(self):
         self.input = tf.placeholder(tf.int32, [None,
-                                              self.args.get("sequence_length")*2],
+                                              self.args.get("sequence_length")*2+1],
                                        name="input")
 
         self.input_sim = tf.placeholder(tf.float32, [None], name="input_sim")
@@ -165,4 +166,21 @@ class BLSTM_Quora(Model):
             print("EVAL: {}\tStep: {}\tloss: {:g}\t pco:{}\tmse:{}".format(
                     time_str, step, loss, pco, mse))
         return loss, pco, mse, sim
+
+    def infer(sess, sentence1, sentence2):
+        sentence1 = datasets.seq2id(s1s[0], self.vocab_w2i,
+                                    seq_begin, seq_end)
+        sentence2 = datasets.seq2id(s2s[0], self.vocab_w2i,
+                                    seq_begin, seq_end)
+        merge_sentences(sentence1, sentence2)
+
+        feed_dict = {
+            self.input: sentences
+        }
+        ops = [self.out]
+        return sess.run(ops, feed_dict)
+
+def merge_sentences(sentence1, sentence2):
+    delimiter = np.zeros( (1, 1) )
+    return np.concatenate((sentences_1, delimiter, sentences_2), axis=1)
 

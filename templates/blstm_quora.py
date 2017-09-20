@@ -50,9 +50,9 @@ tf.flags.DEFINE_integer("max_checkpoints", 100, "Maximum number of "
 tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 300, "Number of training epochs"
                                            " (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 200, "Evaluate model on dev set "
+tf.flags.DEFINE_integer("evaluate_every", 300, "Evaluate model on dev set "
                                     "after this many steps (default: 100)")
-tf.flags.DEFINE_integer("checkpoint_every", 100, "Save model after this many"
+tf.flags.DEFINE_integer("checkpoint_every", 300, "Save model after this many"
                                                   " steps (default: 100)")
 tf.flags.DEFINE_integer("max_dev_itr", 100, "max munber of dev iterations "
                               "to take for in-training evaluation")
@@ -330,7 +330,6 @@ def non_parametric_regression(xs, ys, method):
 
 
 if __name__ == '__main__':
-    ds = None
 
     ds = None
     if FLAGS.dataset == 'STS':
