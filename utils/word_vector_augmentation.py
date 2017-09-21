@@ -108,8 +108,7 @@ def augment_word_vector(nlp, sentence,
 
     doc = nlp(sentence)
     for i in doc:
-        word_vector = i.vector
-        vector_elements = [word_vector]
+        vector_elements = []
         if include_pos:
             pos = i.pos_
             one_hot_pos = to_categorical([pos_list.index(pos)], len(pos_list))[0]
@@ -138,3 +137,5 @@ def augment_word_vector(nlp, sentence,
 if __name__ == '__main__':
     import spacy
     nlp = spacy.load('en')
+    vec = augment_word_vector(nlp, 'I like food')
+    print("works...")
