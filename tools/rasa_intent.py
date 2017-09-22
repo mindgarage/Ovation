@@ -24,7 +24,7 @@ def rasa_train_MITIE():
 
 
 def predict(ranking, test_string):
-	interpreter = Interpreter.load('./models/default/model_20170922-055303', RasaNLUConfig("config_spacy.json"))
+	interpreter = Interpreter.load('./models/model_20170922-032805', RasaNLUConfig("config_spacy.json"))
 	result = interpreter.parse(test_string)
 	if(ranking):
 		print(result)

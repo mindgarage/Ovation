@@ -5,7 +5,7 @@ app = Flask(__name__)
 
 @app.route("/message", methods=['POST'])
 def index() :
-    intent = intent_classify.intent_classify(request.form['msg'])
+    intent = intent_classify.intent_classify(False, request.form['msg'])
     return jsonify({'text':intent_classify.get_response(intent)})
 
 @app.route("/")

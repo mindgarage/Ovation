@@ -9,7 +9,7 @@ model_name = "siamese"
 # softmax_op = np.mean
 # def_th = 0.003
 softmax_op = np.max
-def_th = 0.04
+def_th = 0.0
 
 
 # model_name = "normal_blstm"
@@ -296,10 +296,35 @@ def automatic_thr_selection(is_max = True):
     # plt.plot(t_xs, t_rejected)
     # plt.show()
 
+responses = {'Greetings': ['Hello!', 'Hi! How can I help You?'],
+             'Goodbye': ['Bye! Have a nice day', 'Bye! It was a pleasure talking to you.'],
+             'New Contract': [
+                 'Thank you so much for choosing us. To make a contract, I would be needing some of your personal details.'],
+             'Change Contract': ['Yes, we can change your contract. Can you tell me your customer reference ID?',
+                                 'Sure, to change I need your customer ID'],
+             'Inquire more': ['Yes, I can tell you about it.',
+                              'Please wait, I will ask my human to respond to your query.'],
+             'Claim': ['Sorry for your loss. Sure I will try to help you',
+                       'I am very sorry for your loss. I will check with my human for your query.'],
+             'Accept_app': ["That's great!", "Ok then, I will book the appointment for you.",
+                            "Thanks, your appointment has been booked."],
+             'Reject_app': ["Oh! Sure I will book your next appointment at the preferred time slot.",
+                            "I am really sorry. We don't have any other free time slot"],
+             'Change_app': ["Let me check if I have any free time slot for you.",
+                            "I have to check whether we are free on the prposed time."]}
+import random
+def get_response(intent):
+    print(intent)
+    if intent in responses.keys():
+        response_list = responses[intent]
+        response_index = random.randint(0,len(response_list)-1)
+        return response_list[response_index]
+    else:
+        return "No intent found!!"
 
 
 
-# automatic_thr_selection()
+    # automatic_thr_selection()
 
 # #
 # with open("test_dataset_labeled.csv", 'r') as test_f:

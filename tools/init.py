@@ -17,6 +17,7 @@ if __name__ == '__main__':
             sentence = prompt(u'>')
             if sentence == "exit":
                 break
+            ranking = False
             if args.ranking:
                 ranking = True
 
