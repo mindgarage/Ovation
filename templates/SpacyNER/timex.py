@@ -28,25 +28,29 @@ exp1 = "(before|after|earlier|later|ago|of)"
 exp2 = "(this|next|last|of|on)"
 sm = "(sqm|sm|m2|squares|square|sq.|meters|meter)"
 sm2 = "(meters|meter|m|m.|feet|ft.|squares|square|sqm|sm|m2)"
-iso = "\d+[/-]\d+[/-]\d+ \d+:\d+:\d+\.\d+"
+iso = "\d+[/-]\d+[/-]\d+"
 year = "((?<=\s)\d{4}|^\d{4})"
 regxp1 = "((\d+|(" + numbers + "[-\s]?)+) " +exp2+ "?" + dmy + "s? " + exp1 + "?)"
 regxp2 = "((\d+|(" + numbers + "[-\s]?)+) " +"(" + exp2 + "? (" + dmy + "|" + week_day + "|" + month + ")))"
 regxp3 = "((" + exp2 + "? (" + dmy + "|" + week_day + "|" + month +"( the)? "+ "(\d+|(" + numbers + "[-\s]?)+)" + ")))"
 
-regxp4 = "((\d+|(" + numbers + "[-\s]?)+) ?" +sm+" ?"+sm2+""+")"
-
+regxp4 = "((\d+|(" + numbers + "[-\s]?)+) ?" +sm+" ?"+sm2+"?)"
+regxp5 = "((\d+|(" + numbers + "[-\s]?)+) ?" + month +")"
+#regxp6 = "\d+/\d+/\d+"
 
 reg1 = re.compile(regxp1, re.IGNORECASE)
 reg2 = re.compile(regxp2, re.IGNORECASE)
 reg2b = re.compile(regxp3, re.IGNORECASE)
 reg3 = re.compile(rel_day, re.IGNORECASE)
 reg4 = re.compile(iso)
-reg5 = re.compile(year)
+#reg5 = re.compile(year)
 reg6 = re.compile(regxp4, re.IGNORECASE)
+reg7 = re.compile(regxp5, re.IGNORECASE)
+#reg8 = re.compile(regxp6, re.IGNORECASE)
 
 def tag(text):
-
+    #print (regxp3)
+    #print (regxp5)
     # Initialization
     timex_found = []
     sqm_found = []
@@ -83,16 +87,22 @@ def tag(text):
         timex_found.append(timex)
 
     # Year
+    '''
     found = reg5.findall(text)
     for timex in found:
         timex_found.append(timex)
-
+    '''
     found = reg6.findall(text)
     found = [a[0] for a in found if len(a) > 1]
     for sqm in found:
         sqm_found.append(sqm)
 
-    # Tag only temporal expressions which haven't been tagged.
+    # Year
+    found = reg7.findall(text)
+    found = [a[0] for a in found if len(a) > 1]
+    for timex in found:
+        timex_found.append(timex)
+
     for timex in timex_found:
         text = re.sub(timex + '(?!</DATE>)', '<DATE>' + timex + '</DATE>', text)
 
