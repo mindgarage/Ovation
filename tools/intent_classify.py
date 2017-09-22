@@ -2,12 +2,29 @@ import csv
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
 from tf_plugger import *
 import rasa_intent
+import numpy as np
+
+
+model_name = "siamese"
+# softmax_op = np.mean
+# def_th = 0.003
+softmax_op = np.max
+def_th = 0.0
 
 
 # model_name = "normal_blstm"
 # model_name = "siamese"
 model_name = "attention_blstm"
-#model, sess = load_model(model_name)
+model, sess = load_model(model_name)
+
+# softmax_op = np.mean
+# def_th = 0.03
+
+# model_name = "attention_blstm"
+# softmax_op = np.max
+# def_th = 0.02
+
+
 
 
 extra_chars = ['?', ',', '.', "'s", "_"]
@@ -68,7 +85,7 @@ def softmax(x):
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum()
 
-def get_sofmax_scores(dict, op_ev = np.max):
+def get_sofmax_scores(dict, op_ev = softmax_op):
     cls = []
     vals = []
     for intent in dict.keys():
@@ -80,7 +97,7 @@ def get_sofmax_scores(dict, op_ev = np.max):
     vals = softmax(np.array(vals))
     return { k : v for k,v in zip(cls, vals) }
 
-def intent_classify(ranking=True, test_input="", thr=0.0, model_type='blstm'):
+def intent_classify(ranking=True, test_input="", thr=def_th, model_type='blstm'):
     if model_type == 'rasa':
         result = rasa_intent.predict(ranking, test_input)
         new_lst = []
@@ -283,7 +300,7 @@ def automatic_thr_selection(is_max = True):
 
 
 
-#automatic_thr_selection()
+# automatic_thr_selection()
 
 
 with open("test_dataset_labeled.csv", 'r') as test_f:
@@ -309,8 +326,10 @@ with open("test_dataset_labeled.csv", 'r') as test_f:
     print("CFM")
 
     # classes = list(np.unique(ground_truths)) + ["Rejected"]
-    classes = ["Greetings", "Goodbye", "New Contract", "Change Contract",
-               "Reject_app", "Change_app", "Accepted_app", "claim", "Rejected"]
+
+    classes = ["Greetings","Goodbye","New_Contract","Change Contract",
+               "Accept_app", "Change_app", "Reject_app", "claim",
+               "Rejected"]
     plt.figure()
     plot_confusion_matrix(confusion_matrix(ground_truths, predictions, labels=classes),
                           classes)
