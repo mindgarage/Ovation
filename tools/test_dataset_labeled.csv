@@ -1,0 +1,24 @@
+HI, how are you?	Greetings
+hello	Greetings
+Good Evening	Greetings
+have a nice day	Goodbye
+good bye	Goodbye
+Bye, Have a nice evening.	Goodbye
+I want to know more about the policies	New Contract
+I want to get a new contract.	New Contract
+I dont have a insurance for my car.	New Contract
+I dont like the conditions of my current insurance.	Change Contract
+My current insurance doesnt cover my house, how can i change it?	Change Contract
+I found out that my contract allows for a discount for married people. I am married, but i am not getting it. How can I fix it? 	Change Contract
+My house got burnt. What is the procedure for reclaiming your insurance?	claim
+Somebody stole my phone. What can I do now?	claim
+Do you cover damage caused by hails? My roof got destroyed	claim
+The proposed time works for me.	Accept_app
+Perfect! I'll be there!	Accept_app
+Works for me! I'll plan accordingly	Accept_app
+I want to cancel my appointment.	Reject_app
+No.i have some other things to do. I can't come.	Reject_app
+This doesnt work for me, I am travelling next week.	Reject_app
+I will not make it today, please can we meet tomorrow?	Change_app
+Can't we meet on Tuesday instead?	Change_app
+I dont think I can come at this time. Can you reschedule?	Change_app

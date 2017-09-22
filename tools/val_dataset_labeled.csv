@@ -1,0 +1,16 @@
+Hello!	Greetings
+Hey 	Greetings
+Ok,thats all what I needed , I am going.	Goodbye
+I shall be leaving now, bye.	Goodbye
+Please find me a suitable insurance	New_Contract
+I just moved here and I am looking for a new insurance for my house.	New_Contract
+I want to add another contact information.	Change_Contract
+Can I change the duration of my contract.	Change_Contract
+I had an accident, my car got crashed so I want claim for it.	claim
+I have medical bills, please process my insurance claim.	claim
+I think it suits me.	Accept_app
+Great, looking forward to the meeting.	Accept_app
+I am not sure whether I can come today.	Reject_app
+I cannot confirm the appointment on this time.	Reject_app
+I want to change my appointment of Tuesday.	Change_app
+Do you have any other free time slot?	Change_app

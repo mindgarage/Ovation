@@ -1,61 +1,78 @@
-Insurance,,Greetings,,"HI, how are you?"
-,,,,how is your day?
+Insurance,,Greetings,,how is your day?
 ,,,,Hello there!
 ,,,,how is it going today?
 ,,,,"Hi, can we talk?"
 ,,,,"Hey, good to see you"
-,,,,Hello!
-,,,,"Hey, "
+,,,,Hi
+,,,,Whats up 
+,,,,Heya
+,,,,"Hello, I have a problem"
+,,,,"Hi, Can you help me"
+,,,,"Hello, How can you help me?"
+,,,,"Hello, I need some information."
+,,,,"Hello, I have some doubt."
+,,,,Good Morning
 ,,,,
 ,,,,
-,,Goodbye,,have a nice day
-,,,,see you later
+,,,,
+,,Goodbye,,see you later
 ,,,,talk to you soon
-,,,,good bye
 ,,,,"thank you, bye"
 ,,,,Nice talking to you.
 ,,,,Thank you. I will call you later.
 ,,,,Thank you for your time.
 ,,,,have a good weekend
-,,,,"thats all what I needed , I am going."
-,,,,I shall be leaving now.
+,,,,"Bye, Take care"
+,,,,"Thank you, That's all I need."
+,,,,"ok, Have a nice day."
+,,,,"ok, see you soon."
+,,,,See you later.
+,,,,"Bye, Thank you for your time."
+,,,,Good Bye
+,,,,okay. Thank you.
+,,,,Bye
+,,,,
 ,,,,
 ,,New Contract,,I am looking for a contract
 ,,,,I want to make a contract
-,,,,I want to know more about the policies
 ,,,,"My friend told me about your insurance, so how should we proceed?"
 ,,,,"I saw your advertisement , I am quite interested."
 ,,,,I want to get insurance for my new house.
 ,,,,I want to buy your insurance for two years.
-,,,,Please find me a suitable  insurance
-,,,,I just moved here and I am looking for a new insurance for my house.
+,,,,I would like to create a new contract
+,,,,"I heard about you from a friend, I would like to hire your services"
+,,,,I would like a insurance for my house
+,,,,I heard your liability insurance is cheapest in the market.
+,,,,"With the phone, I would like to buy a phone insurance"
+,,,,can I get your insurance through my phone.
+,,,,"I dont have an insurance, can you help me get one?"
+,,,,
+,,,,
 ,,,,
 ,,Change Contract,,I am looking for another premium
 ,,,,I want to change information in the contract
 ,,,,I have moved to a new city.
 ,,,,I want to change my address.
-,,,,I wan to add another contact information.
-,,,,Can I change the duration of my contract.
-,,,,
-,,,,
-,,,,
-,,Inquire more,,What is the premium?
-,,,,What premiums do you offer?
-,,,,what are other policies?
-,,,,suggest some policies.
-,,,,What are available policies for my dependent.
-,,,,"I got married, how does it impacts my contract."
-,,,,"My visa status has changed, let me now if it affects anything. "
-,,,,Tell me more about this premium
-,,,,Explain me in detail.
-,,,,How do I renew my contract?
+,,,,I got married and i would like to include my wife in my insurance.
+,,,,How can i include my children in my current insurance?
+,,,,I have to update some personal details in my insurance.
+,,,,I want to change bank details in my insurance.
+,,,,I bought a new phoone and I would like to update my contact information
+,,,,"I noticed an typo in my name, I would like to fix it."
+,,,,My work profile got changed and I want to update my insurance accordingly.
+,,,,I need coverage for my children.
 ,,,,
 ,,claim,,"Lost my phone, how much money I can get?"
 ,,,,"Here is the police proof that my car got stolen, how can I get my money?"
 ,,,,I have your company insurance for my phone which I lost last monday.
-,,,,I have to claim my house insurance 
-,,,,"I had an accident, my car got crashed so I want claim for it."
-,,,,"I have medical bills, please process my insurance claim."
+,,,,I have to claim my house insurance
+,,,,I heard your insurance covers fender benders. Someone just hit my car
+,,,,My wife had an accident. I need my insurance
+,,,,I need you to pay for the hospital: my son is sick
+,,,,I heard you cover medicines for food poisoning. I just got out of the medical center
+,,,,You still didn't provide me with the money I requested for my broken phone. I want it ASAP
+,,,,"I want to reclaim my insurance, what is the procedure?"
+,,,,
 ,,,,
 ,,,,
 Appointment Change,,Accept_app,,"ok, I am free that day."
@@ -63,30 +80,47 @@ Appointment Change,,Accept_app,,"ok, I am free that day."
 ,,,,it works for me
 ,,,,"yes, I am available."
 ,,,,I will be there.
-,,,,The proposed time works for me.
 ,,,,I will take that appointment.
 ,,,,"Yes, I will be there on time."
-,,,,I think it suits me.
-,,,,"Great, looking forward to the meeting."
+,,,,Sure! This time is great for me
+,,,,Yes! I can make it.
+,,,,Thanks! I'll see you in a week
+,,,,I will definitely be there.
+,,,,"If that is your best time, then its ok."
+,,,,I can't wait to see you there.
+,,,,I am looking forward to meet you at that time.
+,,,,"sure, I am very happy with this time"
+,,,,
 ,,,,
 ,,Reject_app,,"sorry, I am not free."
 ,,,,"No, I have to go somewhere else."
 ,,,,I am not in the town that day
 ,,,,It is not possible for me as I have another meeting.
 ,,,,I does not work for me.
-,,,,I want to cancel my appointment.
 ,,,,"I am not happy with the time, please cancel it."
 ,,,,"I have another urgent work, will not be able to come."
-,,,,I am not sure whether I can come today.
-,,,,I cannot confirm the appointment on the decided time.
+,,,,I dont think I can come at that time
+,,,,"I am very busy after Monday, so its not possible."
+,,,,"It doesn't work for me, I cant come."
+,,,,This is a very bad time for me.
+,,,,I am unavailable on Monday and Wednesday
+,,,,I cant come on Saturdays as usually I go grocery shopping.
+,,,,It will be very hard for me to come this day.
+,,,,No. At this time its impossible
+,,,,
 ,,,,
 ,,Change_app,,I want to postpone my appointment to next Monday
 ,,,,I have to prepone my appointment as I am going out of country
 ,,,,Can I change my appointment.
-,,,,"I will not make it today, please can we meet tomorrow?"
 ,,,,How about another day?
 ,,,,"I am okay with the date, please change the time."
 ,,,,"Instead of 2 pm, let us meet at 3."
 ,,,,Please give me another appointment.
-,,,,I want to change my appointment to coming tuesday.
-,,,,Do you have any other free time slot?
+,,,,It would be better for both of us on Saturday to meet.
+,,,,I want to reschedule my appointment.
+,,,,I want to make a change in the timing of my appointment.
+,,,,Can you give me an appointment at some other time?
+,,,,I wont be able to make at the appointment we had scheduled before. Can we change it?
+,,,,"I will be busy in the morning, can we reschedule it to the afternoon?"
+,,,,"I will be late to our next appointment, can we push it 30 min?"
+,,,,I would like to push our appointments to 30 minutes.
