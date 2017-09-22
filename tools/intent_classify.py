@@ -1,16 +1,12 @@
 import csv
-
-import numpy as np
-import sklearn
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
-
 from tf_plugger import *
-
+import rasa_intent
 
 
 # model_name = "normal_blstm"
-model_name = "siamese"
-# model_name = "attention_blstm"
+# model_name = "siamese"
+model_name = "attention_blstm"
 model, sess = load_model(model_name)
 
 
@@ -72,7 +68,7 @@ def softmax(x):
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum()
 
-def get_sofmax_scores(dict, op_ev = np.mean):
+def get_sofmax_scores(dict, op_ev = np.max):
     cls = []
     vals = []
     for intent in dict.keys():
@@ -84,11 +80,15 @@ def get_sofmax_scores(dict, op_ev = np.mean):
     vals = softmax(np.array(vals))
     return { k : v for k,v in zip(cls, vals) }
 
-def intent_classify(ranking=True, test_input="", thr=0.0):
-    return intent_classify_tensorflow(documents, test_input, ranking=ranking, thr=thr)
+def intent_classify(ranking=True, test_input="", thr=0.0, model_type='blstm'):
+    if model_type == 'rasa':
+        return rasa_intent.predict(ranking, test_input)
+    elif model_type == 'blstm':
+        return intent_classify_tensorflow(documents, test_input, ranking=ranking, thr=thr)
 
 
-def intent_classify_tensorflow(documents, test_input, ranking=True, thr = 0.0):
+def intent_classify_tensorflow(documents, test_input, ranking=True,
+                               thr=0.0):
     dict = {}
     # print("TEST", test_input)
 
@@ -113,15 +113,14 @@ def intent_classify_tensorflow(documents, test_input, ranking=True, thr = 0.0):
     res = [(intent_name, score) for intent_name, score in dict.items()]
     sorted_res = sorted(res,  key = lambda x : x[1])
 
-
+    print(sorted_res)
     if (sorted_res[-1][1] - sorted_res[-2][1]) < thr:
         return None
 
-    print(sorted_res)
     predicted_intent = sorted_res[-1][0]
 
     if ranking:
-        return json.dumps(sorted_res)
+        return str(sorted_res)
 
     # best_val = -999.0
     # best_selected = None
@@ -196,13 +195,23 @@ def plot_confusion_matrix(cm, classes,
     plt.xlabel('Predicted label')
 
 
-pred_intent = intent_classify(ranking=False, test_input="Hello")
 
 
-def automatic_thr_selection(is_max = False):
+def precomp_dist_matrix():
+    map_res = {}
+    with open("val_dataset_labeled.csv", 'r') as test_f:
+        for test_line in test_f:
+            text, gt_intent = test_line.split('\t')
+            # [ (cl_name, sim) ]
+            rankings = intent_classify(test_input=text, ranking=True, thr=0.0)
+            map_res[text] = eval(rankings)
+    return map_res
+
+def automatic_thr_selection(is_max = True):
     # Calculate all distances on dataset beforehand.
+    map_res = precomp_dist_matrix()
 
-    step_size = 0.01 if is_max else 0.001
+    step_size = 0.001 if is_max else 0.001
     thr = np.arange(0.0, 0.99, step_size)
     t_xs, t_correct, t_wrong, t_rejected = [], [], [], []
     for t in thr:
@@ -213,7 +222,14 @@ def automatic_thr_selection(is_max = False):
         with open("val_dataset_labeled.csv", 'r') as test_f:
             for test_line in test_f:
                 text, gt_intent = test_line.split('\t')
-                pred_intent = intent_classify(test_input=text, ranking=False, thr=t)
+
+                pred_intent = None
+                ranks_now = map_res[text]
+                if (ranks_now[-1][1] - ranks_now[-2][1]) >= t:
+                    pred_intent = ranks_now[-1][0]
+
+
+                # pred_intent = intent_classify(test_input=text, ranking=False, thr=t)
                 # Get results.
                 if pred_intent is None:
                     n_rejected += 1
