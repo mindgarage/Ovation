@@ -9,12 +9,12 @@ model_name = "siamese"
 # softmax_op = np.mean
 # def_th = 0.003
 softmax_op = np.max
-def_th = 0.0
+def_th = 0.04
 
 
 # model_name = "normal_blstm"
 # model_name = "siamese"
-model_name = "attention_blstm"
+#model_name = "attention_blstm"
 model, sess = load_model(model_name)
 
 # softmax_op = np.mean
@@ -118,8 +118,7 @@ def intent_classify(ranking=True, test_input="", thr=def_th, model_type='blstm')
         return intent_classify_tensorflow(documents, test_input, ranking=ranking, thr=thr)
 
 
-def intent_classify_tensorflow(documents, test_input, ranking=True,
-                               thr=0.0):
+def intent_classify_tensorflow(documents, test_input, ranking=True, thr=def_th):
     dict = {}
     # print("TEST", test_input)
 
@@ -302,37 +301,37 @@ def automatic_thr_selection(is_max = True):
 
 # automatic_thr_selection()
 
-
-with open("test_dataset_labeled.csv", 'r') as test_f:
-    ground_truths = []
-    predictions = []
-    for test_line in test_f:
-        text, gt_intent = test_line.split('\t')
-        pred_intent = intent_classify(test_input=text, ranking=False, thr = 0.2, model_type='rasa' )
-
-        if pred_intent is None:
-            pred_intent = "Rejected"
-        predictions.append(pred_intent.strip())
-        ground_truths.append(gt_intent.strip())
-
-        print("----------------------------------------")
-        print(text)
-        print("vvvv")
-        print("true intent : ", gt_intent, " predicted intent : ", pred_intent)
-        print("----------------------------------------")
-
-    print("MODEL", model_name)
-    print("ACCURACY", accuracy_score(ground_truths, predictions))
-    print("CFM")
-
-    # classes = list(np.unique(ground_truths)) + ["Rejected"]
-
-    classes = ["Greetings","Goodbye","New_Contract","Change Contract",
-               "Accept_app", "Change_app", "Reject_app", "claim",
-               "Rejected"]
-    plt.figure()
-    plot_confusion_matrix(confusion_matrix(ground_truths, predictions, labels=classes),
-                          classes)
-    plt.show()
-    print("F1-MACRO")
-    print(f1_score(ground_truths, predictions,average='macro'))
+# #
+# with open("test_dataset_labeled.csv", 'r') as test_f:
+#     ground_truths = []
+#     predictions = []
+#     for test_line in test_f:
+#         text, gt_intent = test_line.split('\t')
+#         pred_intent = intent_classify(test_input=text, ranking=False, thr = 0.0, model_type='rasa' )
+#
+#         if pred_intent is None:
+#             pred_intent = "Rejected"
+#         predictions.append(pred_intent.strip())
+#         ground_truths.append(gt_intent.strip())
+#
+#         print("----------------------------------------")
+#         print(text)
+#         print("vvvv")
+#         print("true intent : ", gt_intent, " predicted intent : ", pred_intent)
+#         print("----------------------------------------")
+#
+#     print("MODEL", model_name)
+#     print("ACCURACY", accuracy_score(ground_truths, predictions))
+#     print("CFM")
+#
+#     # classes = list(np.unique(ground_truths)) + ["Rejected"]
+#
+#     classes = ["Greetings","Goodbye","New Contract","Change Contract",
+#                "Accept_app", "Change_app", "Reject_app", "claim",
+#                "Rejected"]
+#     plt.figure()
+#     plot_confusion_matrix(confusion_matrix(ground_truths, predictions, labels=classes),
+#                           classes)
+#     plt.show()
+#     print("F1-MACRO")
+#     print(f1_score(ground_truths, predictions,average='macro'))
