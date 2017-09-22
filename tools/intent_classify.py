@@ -7,7 +7,7 @@ import rasa_intent
 # model_name = "normal_blstm"
 # model_name = "siamese"
 model_name = "attention_blstm"
-model, sess = load_model(model_name)
+#model, sess = load_model(model_name)
 
 
 extra_chars = ['?', ',', '.', "'s", "_"]
@@ -82,7 +82,21 @@ def get_sofmax_scores(dict, op_ev = np.max):
 
 def intent_classify(ranking=True, test_input="", thr=0.0, model_type='blstm'):
     if model_type == 'rasa':
-        return rasa_intent.predict(ranking, test_input)
+        result = rasa_intent.predict(ranking, test_input)
+        new_lst = []
+        for map_one in result["intent_ranking"]:
+            new_lst.append((map_one['name'], map_one['confidence']))
+        res = new_lst
+        sorted_res = sorted(res,  key = lambda x : x[1])
+        print(sorted_res)
+
+        if (sorted_res[-1][1] - sorted_res[-2][1]) < thr:
+            return None
+
+        if ranking:
+            return str(sorted_res)
+        else:
+            return sorted_res[-1][0]
     elif model_type == 'blstm':
         return intent_classify_tensorflow(documents, test_input, ranking=ranking, thr=thr)
 
@@ -180,7 +194,7 @@ def plot_confusion_matrix(cm, classes,
     plt.title(title)
     plt.colorbar()
     tick_marks = np.arange(len(classes))
-    plt.xticks(tick_marks, classes, rotation=45)
+    plt.xticks(tick_marks, classes, rotation=90)
     plt.yticks(tick_marks, classes)
 
     fmt = '.2f' if normalize else 'd'
@@ -203,7 +217,8 @@ def precomp_dist_matrix():
         for test_line in test_f:
             text, gt_intent = test_line.split('\t')
             # [ (cl_name, sim) ]
-            rankings = intent_classify(test_input=text, ranking=True, thr=0.0)
+            rankings = intent_classify(test_input=text, ranking=True,
+                                       thr=0.0, model_type='rasa')
             map_res[text] = eval(rankings)
     return map_res
 
@@ -253,7 +268,7 @@ def automatic_thr_selection(is_max = True):
     # print(t_rejected)
     plt.xlabel("threshold")
     plt.yticks(np.arange(0, n_total, 1.0))
-    plt.xticks(np.arange(0.0, max(t_xs), step_size))
+    plt.xticks(np.arange(0.0, max(t_xs), 0.1))
     plt.plot(t_xs, t_correct, '--bo', label = "correct")
     plt.plot(t_xs, t_rejected,'--go', label = "rejected")
     plt.plot(t_xs, t_wrong, '--ro', label="wrong")
@@ -268,7 +283,7 @@ def automatic_thr_selection(is_max = True):
 
 
 
-automatic_thr_selection()
+#automatic_thr_selection()
 
 
 with open("test_dataset_labeled.csv", 'r') as test_f:
@@ -276,8 +291,10 @@ with open("test_dataset_labeled.csv", 'r') as test_f:
     predictions = []
     for test_line in test_f:
         text, gt_intent = test_line.split('\t')
-        pred_intent = intent_classify(test_input=text, ranking=False)
+        pred_intent = intent_classify(test_input=text, ranking=False, thr = 0.2, model_type='rasa' )
 
+        if pred_intent is None:
+            pred_intent = "Rejected"
         predictions.append(pred_intent.strip())
         ground_truths.append(gt_intent.strip())
 
@@ -291,7 +308,9 @@ with open("test_dataset_labeled.csv", 'r') as test_f:
     print("ACCURACY", accuracy_score(ground_truths, predictions))
     print("CFM")
 
-    classes = np.unique(ground_truths)
+    # classes = list(np.unique(ground_truths)) + ["Rejected"]
+    classes = ["Greetings", "Goodbye", "New Contract", "Change Contract",
+               "Reject_app", "Change_app", "Accepted_app", "claim", "Rejected"]
     plt.figure()
     plot_confusion_matrix(confusion_matrix(ground_truths, predictions, labels=classes),
                           classes)

@@ -19,6 +19,7 @@ if __name__ == '__main__':
                 break
             if args.ranking:
                 ranking = True
+
             ovation_intent = intent_classify.intent_classify(ranking=ranking,
                                                      test_input=sentence,
                                                      model_type='blstm')

@@ -24,13 +24,13 @@ def rasa_train_MITIE():
 
 
 def predict(ranking, test_string):
-	test_data = (test_string)
-	interpreter = Interpreter.load('./models/model_20170922-032805', RasaNLUConfig("config_spacy.json"))
+	interpreter = Interpreter.load('./models/default/model_20170922-055303', RasaNLUConfig("config_spacy.json"))
 	result = interpreter.parse(test_string)
 	if(ranking):
 		print(result)
 	else:
 		print("Only INTENT {} With Text:  {}".format(result['intent'], result['text']))
+	return result
 
 def get_inputSentence():
 	list_text = []
@@ -41,10 +41,10 @@ def get_inputSentence():
 
 def main():
 	string = get_inputSentence()
-	print (string)
+	# print (string)
 	#print (sys.argv)
 	getranking_FLAG = False
 	predict(getranking_FLAG, string)
 
 if __name__ == "__main__":
-	main()  #rasa_train_spacy()
+	main() #rasa_train_spacy()
