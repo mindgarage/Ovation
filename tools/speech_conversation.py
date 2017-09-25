@@ -59,7 +59,7 @@ def say(text):
         channels = w.getnchannels()
         width = w.getsampwidth()
         rate = w.getframerate()
-        chunksize = 1024
+        chunksize = 1024*10
 
         stream = audio.open(rate=rate, channels=channels, format=audio.get_format_from_width(width), output=True)
         data = w.readframes(chunksize)
