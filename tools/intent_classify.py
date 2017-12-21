@@ -1,4 +1,5 @@
 import csv
+import os
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
 from tf_plugger import *
 import rasa_intent
@@ -105,8 +106,6 @@ def intent_classify(ranking=True, test_input="", thr=def_th, model_type='blstm')
             new_lst.append((map_one['name'], map_one['confidence']))
         res = new_lst
         sorted_res = sorted(res,  key = lambda x : x[1])
-        print(sorted_res)
-
         if (sorted_res[-1][1] - sorted_res[-2][1]) < thr:
             return None
 
@@ -143,7 +142,6 @@ def intent_classify_tensorflow(documents, test_input, ranking=True, thr=def_th):
     res = [(intent_name, score) for intent_name, score in dict.items()]
     sorted_res = sorted(res,  key = lambda x : x[1])
 
-    print(sorted_res)
     if (sorted_res[-1][1] - sorted_res[-2][1]) < thr:
         return None
 
@@ -204,8 +202,6 @@ def plot_confusion_matrix(cm, classes,
     else:
         print('Confusion matrix, without normalization')
 
-    print(cm)
-
     plt.imshow(cm, interpolation='nearest', cmap=cmap)
     plt.title(title)
     plt.colorbar()
@@ -234,7 +230,7 @@ def precomp_dist_matrix():
             text, gt_intent = test_line.split('\t')
             # [ (cl_name, sim) ]
             rankings = intent_classify(test_input=text, ranking=True,
-                                       thr=0.0, model_type='rasa')
+                                       thr=0.0, model_type='blstm')
             map_res[text] = eval(rankings)
     return map_res
 
@@ -314,7 +310,6 @@ responses = {'Greetings': ['Hello!', 'Hi! How can I help You?'],
                             "I have to check whether we are free on the prposed time."]}
 import random
 def get_response(intent):
-    print(intent)
     if intent in responses.keys():
         response_list = responses[intent]
         response_index = random.randint(0,len(response_list)-1)
@@ -324,15 +319,15 @@ def get_response(intent):
 
 
 
-    # automatic_thr_selection()
-
-# #
+# automatic_thr_selection()
+#
+#
 # with open("test_dataset_labeled.csv", 'r') as test_f:
 #     ground_truths = []
 #     predictions = []
 #     for test_line in test_f:
 #         text, gt_intent = test_line.split('\t')
-#         pred_intent = intent_classify(test_input=text, ranking=False, thr = 0.0, model_type='rasa' )
+#         pred_intent = intent_classify(test_input=text, ranking=False, thr=def_th, model_type='blstm' )
 #
 #         if pred_intent is None:
 #             pred_intent = "Rejected"
@@ -348,6 +343,8 @@ def get_response(intent):
 #     print("MODEL", model_name)
 #     print("ACCURACY", accuracy_score(ground_truths, predictions))
 #     print("CFM")
+#     print("F1-MACRO")
+#     print(f1_score(ground_truths, predictions, average='macro'))
 #
 #     # classes = list(np.unique(ground_truths)) + ["Rejected"]
 #
@@ -358,5 +355,39 @@ def get_response(intent):
 #     plot_confusion_matrix(confusion_matrix(ground_truths, predictions, labels=classes),
 #                           classes)
 #     plt.show()
-#     print("F1-MACRO")
-#     print(f1_score(ground_truths, predictions,average='macro'))
+
+def gen_test_dist_matrix(path_out, details, model_type = 'blstm'):
+    classes = ["Greetings", "Goodbye", "New Contract", "Change Contract",
+               "Accept_app", "Change_app", "Reject_app", "claim"]
+    lst_res = []
+    with open("test_dataset_labeled.csv", 'r') as test_f:
+        for test_line in test_f:
+            text, gt_intent = test_line.split('\t')
+            gt_intent = gt_intent.strip()
+
+            rankings = intent_classify(test_input=text, ranking=True,
+                                       thr=-0.12, model_type=model_type)
+            rankings = eval(rankings)
+            map_res = {intent : value for intent, value in rankings}
+            ordered_res = [map_res[cl] for cl in classes]
+            # Add metadata.
+            ordered_res.append(np.argmax(ordered_res))
+            ordered_res.append(classes.index(gt_intent))
+            ordered_res.append(gt_intent)
+
+            lst_res.append(ordered_res)
+
+    with open(os.path.join(path_out, 'dist_' + model_type + \
+                           '_' + details + '.csv'), 'w') as f:
+        meta_data = ["predOf" + str(i) for i in range(len(classes))]
+        print(meta_data)
+        meta_data.append("predIndex")
+        meta_data.append("trueIndex")
+        meta_data.append("trueLabel")
+        f.write("{},{},{},{},{},{},{},{},{},{},{}\n".format(*meta_data))
+
+        for i in lst_res:
+            f.write("{},{},{},{},{},{},{},{},{},{},{}\n".format(*i))
+
+path_out = '/home/mg1/Desktop'
+gen_test_dist_matrix(path_out, 'none', model_type='rasa')
