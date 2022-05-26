@@ -44,7 +44,7 @@ six==1.10.0
 sklearn==0.0
 smart-open==1.5.3
 spacy==1.9.0
-tensorflow-gpu==1.2.0
+tensorflow-gpu==2.7.2
 tensorflow-tensorboard==0.1.4
 termcolor==1.1.0
 thinc==6.5.2
