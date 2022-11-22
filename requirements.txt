@@ -24,7 +24,7 @@ numpy==1.13.1
 olefile==0.44
 path.py==7.7.1
 pathlib==1.0.1
-Pillow==4.2.1
+Pillow==9.3.0
 plac==0.9.6
 preshed==1.0.0
 progressbar2==3.34.2
